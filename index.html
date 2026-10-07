@@ -5434,12 +5434,36 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
                 const currentLounge = current?.world?.lounge;
                 if (!currentLounge || currentLounge.recordOnPlayer !== record) return;
 
+                const changedFields = [
+                    "recordOnPlayer",
+                    "playingRecord",
+                    "closeEyesReadyAt",
+                    ...(destination === "dumpspot" ? ["dumpspotItems"] : [])
+                ];
+                const latestFieldRevision = Math.max(
+                    0,
+                    ...Object.values(currentLounge.sharedFieldRevisions || {})
+                        .map(revision => Number(revision) || 0)
+                );
+                const revision = Math.max(
+                    Date.now() * 10 + (Number(playerState.id) || 0),
+                    (Number(currentLounge.sharedRevision) || 0) + 1,
+                    latestFieldRevision + 1
+                );
+                const sharedFieldRevisions = {
+                    ...(currentLounge.sharedFieldRevisions || {})
+                };
+                changedFields.forEach(field => {
+                    sharedFieldRevisions[field] = revision;
+                });
                 const next = {
                     ...current,
                     world: {
                         ...current.world,
                         lounge: {
                             ...currentLounge,
+                            sharedRevision: revision,
+                            sharedFieldRevisions,
                             recordOnPlayer: null,
                             playingRecord: null,
                             closeEyesReadyAt: null,
