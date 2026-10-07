@@ -8198,8 +8198,11 @@ function handleAction(action) {
     if (actions[action]) actions[action]();
 }
 
-function refreshScene() {
-    goToScene(scenes[playerState.scene] ? playerState.scene : currentScene);
+function refreshScene({ persist = false } = {}) {
+    goToScene(
+        scenes[playerState.scene] ? playerState.scene : currentScene,
+        { persist }
+    );
 }
 
 // Löser Ax=b med Gauss-elimination (partial pivoting) för att hitta perspektivtransformen
@@ -11638,7 +11641,7 @@ function fadeOutHotspot(element) {
     element.addEventListener("transitionend", handleTransitionEnd);
 }
 
-function goToScene(id, { debugNavigation = false, transition = true } = {}) {
+function goToScene(id, { debugNavigation = false, transition = true, persist = true } = {}) {
     const data = scenes[id];
         if (
         !SPIRIT_SCENE_IDS.has(id) ||
@@ -11666,7 +11669,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     }
 
     playerState.scene = id;
-    savePlayerState();
+    if (persist) savePlayerState();
 
     if (
         currentScene === "loungeListeningChairListening" &&
@@ -11675,7 +11678,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     ) {
         loungeState.listenerSeatedBy = null;
         loungeState.listenerSeatSession = null;
-        saveWorldState();
+        if (persist) saveWorldState();
     }
 
     if (currentScene === "kitchenRaven" && id !== "kitchenRaven") {
@@ -11685,7 +11688,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     // Fällan hinner fångas medan spelarna är ute i dörrscenen
     if (id === "kitchenDoor" && kitchenState.trapState === "cheese") {
         kitchenState.trapState = "ratTail";
-        saveWorldState();
+        if (persist) saveWorldState();
         playSnapSound();
     }
 
@@ -14165,7 +14168,9 @@ sharedStateStore.subscribe(event => {
             sceneEl.style.backgroundImage = `url("${loungeState.spiritSharedFrameImage}")`;
             sceneEl.querySelectorAll(".hotspot").forEach(el => el.remove());
         } else if (isSpiritCoopMember() && loungeState.spiritSharedScene) {
-            if (currentScene !== loungeState.spiritSharedScene) goToScene(loungeState.spiritSharedScene);
+            if (currentScene !== loungeState.spiritSharedScene) {
+                goToScene(loungeState.spiritSharedScene, { persist: false });
+            }
             setTimeout(tryResolveSpiritActionVote, 250);
         } else {
             refreshScene();
