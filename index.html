@@ -4382,7 +4382,37 @@ const worldState = {
     }
 };
 
-const DEFAULT_LOUNGE_STATE = JSON.parse(JSON.stringify(worldState.lounge));
+function cloneGameState(value) {
+    if (value instanceof Set) return new Set(value);
+    if (Array.isArray(value)) return value.map(cloneGameState);
+    if (value && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, nestedValue]) => [key, cloneGameState(nestedValue)])
+        );
+    }
+    return value;
+}
+
+const DEFAULT_WORLD_STATE = {
+    kitchen: cloneGameState(worldState.kitchen),
+    laboratory: cloneGameState(worldState.laboratory),
+    exterior: cloneGameState(worldState.exterior),
+    raven: cloneGameState(worldState.raven),
+    hall: cloneGameState(worldState.hall),
+    lounge: cloneGameState(worldState.lounge)
+};
+const DEFAULT_PLAYER_STATE = cloneGameState(playerState);
+
+function replaceStateObject(target, defaults, incoming) {
+    Object.keys(target).forEach(field => delete target[field]);
+    Object.assign(
+        target,
+        cloneGameState(defaults),
+        incoming && typeof incoming === "object" && !Array.isArray(incoming)
+            ? incoming
+            : {}
+    );
+}
 
 // Alias:er så befintlig kod kan fortsätta använda samma namn, men mutationerna sker på worldState
 const inventory = playerState.inventory;
@@ -4511,6 +4541,8 @@ function mergeFirebaseState(current, incoming, previous) {
                     JSON.stringify(merged[field]) === JSON.stringify(previous[field])) {
                     delete merged[field];
                 }
+            } else if (incoming[field] === null) {
+                delete merged[field];
             } else if (!hadPrevious) {
                 if (!hasCurrent) merged[field] = incoming[field];
             } else if (JSON.stringify(incoming[field]) !== JSON.stringify(previous[field])) {
@@ -5407,6 +5439,7 @@ function removeLoungeMediaFromSource(sourceData) {
         loungeState.recordOnPlayer = null;
         loungeState.playingRecord = null;
         loungeState.closeEyesReadyAt = null;
+        markSharedLoungeStateChanged();
         closeListeningOverlays();
         return true;
     }
@@ -5615,11 +5648,10 @@ function saveWorldState() {
         SHARED_LOUNGE_STATE_FIELDS.forEach(field => {
             const localFieldRevision = Number(localFieldRevisions[field]) || 0;
             const latestFieldRevision = Number(latestFieldRevisions[field]) || 0;
-            if (
-                Object.prototype.hasOwnProperty.call(latestLounge, field) &&
-                localFieldRevision <= latestFieldRevision
-            ) {
-                worldState.lounge[field] = latestLounge[field];
+            if (localFieldRevision <= latestFieldRevision) {
+                worldState.lounge[field] = Object.prototype.hasOwnProperty.call(latestLounge, field)
+                    ? latestLounge[field]
+                    : cloneGameState(DEFAULT_WORLD_STATE.lounge[field]);
             } else if (localFieldRevision > latestFieldRevision) {
                 mergedFieldRevisions[field] = localFieldRevision;
             }
@@ -5646,9 +5678,10 @@ function saveWorldState() {
 
 function loadWorldState() {
     const raw = sharedStateStore.read(WORLD_STATE_KEY);
-    if (!raw) return;
-
-    const saved = JSON.parse(raw);
+    const parsedState = raw ? JSON.parse(raw) : null;
+    const saved = parsedState && typeof parsedState === "object" && !Array.isArray(parsedState)
+        ? parsedState
+        : {};
 
     worldState.pickedUpItems.clear();
     (saved.pickedUpItems || []).filter(item => item !== "notebook").forEach(item => {
@@ -5658,33 +5691,22 @@ function loadWorldState() {
     worldState.unlockedDoors.clear();
     (saved.unlockedDoors || []).forEach(doorId => worldState.unlockedDoors.add(doorId));
 
-    if (saved.kitchen) {
-        Object.assign(worldState.kitchen, saved.kitchen, {
-            kettleIngredients: new Set(saved.kitchen.kettleIngredients || []),
-            kettleIngredientOwners: saved.kitchen.kettleIngredientOwners || {},
-            kettleTimerEndsAt: saved.kitchen.kettleTimerEndsAt ?? null,
-            kettlePotion: saved.kitchen.kettlePotion ?? false,
-            kettleExploded: saved.kitchen.kettleExploded ?? false,
-            kettleExplosionReturns: saved.kitchen.kettleExplosionReturns ?? null
-        });
-    }
-
-    Object.assign(worldState.laboratory, saved.laboratory || {});
-    Object.assign(worldState.exterior, saved.exterior || {});
-    Object.assign(worldState.raven, saved.raven || {});
-    Object.assign(worldState.hall, saved.hall || {});
-    worldState.hall.homeVotes ||= {};
-    const savedLounge = saved.lounge && typeof saved.lounge === "object"
-        ? saved.lounge
-        : {};
-    Object.keys(worldState.lounge).forEach(field => {
-        delete worldState.lounge[field];
+    replaceStateObject(worldState.kitchen, DEFAULT_WORLD_STATE.kitchen, saved.kitchen);
+    Object.assign(worldState.kitchen, {
+        kettleIngredients: new Set(saved.kitchen?.kettleIngredients || []),
+        kettleIngredientOwners: saved.kitchen?.kettleIngredientOwners || {},
+        kettleTimerEndsAt: saved.kitchen?.kettleTimerEndsAt ?? null,
+        kettlePotion: saved.kitchen?.kettlePotion ?? false,
+        kettleExploded: saved.kitchen?.kettleExploded ?? false,
+        kettleExplosionReturns: saved.kitchen?.kettleExplosionReturns ?? null
     });
-    Object.assign(
-        worldState.lounge,
-        JSON.parse(JSON.stringify(DEFAULT_LOUNGE_STATE)),
-        savedLounge
-    );
+
+    replaceStateObject(worldState.laboratory, DEFAULT_WORLD_STATE.laboratory, saved.laboratory);
+    replaceStateObject(worldState.exterior, DEFAULT_WORLD_STATE.exterior, saved.exterior);
+    replaceStateObject(worldState.raven, DEFAULT_WORLD_STATE.raven, saved.raven);
+    replaceStateObject(worldState.hall, DEFAULT_WORLD_STATE.hall, saved.hall);
+    worldState.hall.homeVotes ||= {};
+    replaceStateObject(worldState.lounge, DEFAULT_WORLD_STATE.lounge, saved.lounge);
     worldState.lounge.sharedFieldRevisions ||= {};
     worldState.lounge.roles = {
         listener: null,
@@ -5720,30 +5742,38 @@ function savePlayerState() {
 
 function loadPlayerState() {
     const raw = sharedStateStore.read(`${PLAYER_STATE_KEY_PREFIX}${playerState.id}`);
-    if (raw) {
-        const saved = JSON.parse(raw);
-        const savedInventory = saved.inventory || [];
-        const { inventory: ignoredInventory, ...savedFields } = saved;
-        Object.assign(playerState, savedFields, { id: playerState.id, team: playerState.team });
-        if (!scenes[playerState.scene]) playerState.scene = startScene;
-        playerState.inventory.clear();
-        savedInventory
-            .filter(item => item !== "notebook" && item !== "remote" && item !== "headphones")
-            .map(item => item === "observatoryKey" ? "seanceKey" : item)
-            .forEach(item => playerState.inventory.add(item));
-        return;
-    }
-
-    const legacyWorld = playerState.id === 1
+    const parsedPlayer = raw ? JSON.parse(raw) : null;
+    const saved = parsedPlayer && typeof parsedPlayer === "object" && !Array.isArray(parsedPlayer)
+        ? parsedPlayer
+        : null;
+    const parsedLegacyWorld = !saved && playerState.id === 1
         ? JSON.parse(sharedStateStore.read(WORLD_STATE_KEY) || "{}")
         : {};
+    const legacyWorld = parsedLegacyWorld && typeof parsedLegacyWorld === "object"
+        ? parsedLegacyWorld
+        : {};
+    const savedInventory = Array.isArray(saved?.inventory)
+        ? saved.inventory
+        : Array.isArray(legacyWorld.inventory) ? legacyWorld.inventory : [];
+    const { inventory: ignoredInventory, ...savedFields } = saved || {};
+    const playerId = playerState.id;
+    const playerTeam = playerState.team;
+    const defaults = cloneGameState(DEFAULT_PLAYER_STATE);
+    defaults.inventory = inventory;
+    Object.keys(playerState).forEach(field => {
+        if (field !== "inventory") delete playerState[field];
+    });
+    Object.assign(playerState, defaults, savedFields, {
+        id: playerId,
+        team: playerTeam
+    });
     playerState.inventory.clear();
-    playerState.scene = startScene;
-    (legacyWorld.inventory || [])
+    savedInventory
         .filter(item => item !== "notebook" && item !== "remote" && item !== "headphones")
         .map(item => item === "observatoryKey" ? "seanceKey" : item)
         .forEach(item => playerState.inventory.add(item));
-    savePlayerState();
+    if (!scenes[playerState.scene]) playerState.scene = startScene;
+    if (!saved) savePlayerState();
 }
 
 function normalizePlayerInventoryCapacity() {
@@ -5919,6 +5949,7 @@ function completeLoungePuzzle() {
     closeListeningOverlays();
     syncLoungeAudio();
     playPowerDownSound();
+    markSharedLoungeStateChanged();
     saveWorldState();
 }
 
@@ -6757,7 +6788,8 @@ const KETTLE_INGREDIENTS = ["crowFeather", "moonDust", "ratTail"];
 let kettleExplosionClaimPending = false;
 
 function applyKettleSnapshot(kitchen) {
-    Object.assign(kitchenState, kitchen, {
+    replaceStateObject(kitchenState, DEFAULT_WORLD_STATE.kitchen, kitchen);
+    Object.assign(kitchenState, {
         kettleIngredients: new Set(Array.isArray(kitchen.kettleIngredients) ? kitchen.kettleIngredients : []),
         kettleIngredientOwners: kitchen.kettleIngredientOwners || {},
         kettleTimerEndsAt: kitchen.kettleTimerEndsAt ?? null,
@@ -7022,6 +7054,7 @@ function pickupDumpspotItem(item) {
     if (!tryAddInventoryItem(item)) return false;
 
     loungeState.dumpspotItems.splice(itemIndex, 1);
+    markSharedLoungeStateChanged();
     updateInventory();
     saveWorldState();
     refreshScene();
@@ -10404,6 +10437,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
             loungeState.dumpspotItems.push(draggedItem);
             showToast(`${getLoungeMediaName(draggedItem)} lades på avlastningsytan.`);
         }
+        markSharedLoungeStateChanged();
         updateInventory();
         saveWorldState();
         refreshScene();
@@ -10481,6 +10515,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
         loungeState.recordOnPlayer = draggedItem;
         loungeState.playingRecord = draggedItem;
         loungeState.closeEyesReadyAt = Date.now() + 5000;
+        markSharedLoungeStateChanged();
         updateInventory();
         saveWorldState();
         refreshScene();
