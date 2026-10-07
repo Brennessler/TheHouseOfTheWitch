@@ -7427,7 +7427,7 @@ function updateInventory({ persist = true } = {}) {
         inventorySlotsEl.appendChild(itemEl);
     });
 
-    savePlayerState();
+    if (persist) savePlayerState();
     syncMessengerRelay();
 }
 
