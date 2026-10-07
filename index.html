@@ -3882,7 +3882,7 @@ const scenes = {
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
             { x: 64.6, y: 50, w: 10.4, h: 16.9, target: "loungeSofaCushions", requiresState: () => !pickedUpItems.has("remote"), label: "Titta mellan dynorna" },
             { x: 19.6, y: 58.1, w: 48, h: 32.4, target: "loungeSofaSeated", cursor: "remote", requiresState: () => playerHasRole("watcher"), label: "Sätt dig i soffan" },
-            { x: 7.3, y: 31.2, w: 22.7, h: 23.7, item: "albumCover01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v02.PNG", label: "Albumomslag" },
+            { x: 7.3, y: 31.2, w: 22.7, h: 23.7, item: "albumCover01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v02.webp", label: "Albumomslag" },
             { x: 49.1, y: 0.8, w: 5.2, h: 6.9, item: "battery01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery01_v01.webp", label: "Batteri" },
             { x: 88, y: 26, w: 11, h: 34, target: "loungeBehindTV", requiresState: () => playerHasRole("builder"), label: "Gå bakom TV:n" }
         ]
@@ -5808,10 +5808,9 @@ const SHARED_LOUNGE_STATE_FIELDS = [
     "spiritRopeReady",
     "spiritCrucifixReady",
     "spiritRunActive",
-    "dumpspotItems",
-    "recordOnPlayer",
-    "playingRecord",
-    "closeEyesReadyAt",
+    "albumShelfSlots",
+    "puzzleSolved",
+    "powerCut",
     "dumpspotItems"
 ];
 
@@ -10452,6 +10451,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
             }
             if (!tryAddInventoryItem(placedSet)) return;
             delete loungeState.albumShelfSlots[slotId];
+            markSharedLoungeStateChanged();
             updateInventory();
             saveWorldState();
             refreshScene();
@@ -10757,6 +10757,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
         }
         inventory.delete(draggedItem);
         loungeState.albumShelfSlots[slotId] = draggedItem;
+        markSharedLoungeStateChanged();
         updateInventory();
         saveWorldState();
         refreshScene();
