@@ -7040,7 +7040,7 @@ function preloadHomeEndingVideo() {
     if (homeEndingVideoLoadStarted) return;
     homeEndingVideoLoadStarted = true;
     homeEndingVideoEl.preload = "auto";
-    homeEndingVideoEl.src = "ending.mp4";
+    homeEndingVideoEl.src = "https://www.dropbox.com/scl/fi/ctszjren7e051j4hnkznm/Ending.mp4?rlkey=z3q9d6prfb5u6hbltxywykeq1&st=ws6oa9hc&raw=1";
     homeEndingVideoEl.load();
     homeEndingVideoReady = homeEndingVideoEl.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA;
 }
@@ -7113,7 +7113,7 @@ function handleHomeEndingVideoError() {
     if (homeEndingSequenceActive && !homeEndingVideoStarted) {
         showHomeEndingStatus("Avslutningen kunde inte laddas.");
     }
-    console.error("Kunde inte ladda ending.mp4.", homeEndingVideoEl.error);
+    console.error("Kunde inte ladda avslutningsvideon från Dropbox.", homeEndingVideoEl.error);
 }
 
 function handleHomeEndingVideoEnded() {
@@ -11363,7 +11363,7 @@ function loadLobbyIntroVideo() {
         lobbyIntroRetryButtonEl.hidden = true;
         lobbyNoticeEl.textContent = "";
         lobbyIntroVideoEl.preload = "auto";
-        lobbyIntroVideoEl.src = "intro-final.mp4";
+        lobbyIntroVideoEl.src = "https://www.dropbox.com/scl/fi/5deeh9d2dkz0wrrdqsqj5/1006-1.mp4?rlkey=owzxoymanqm2a4n0ouvmrtfcj&st=zra7rlni&raw=1";
         lobbyIntroVideoEl.load();
     }
     if (lobbyIntroVideoEl.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
@@ -11384,7 +11384,7 @@ function handleLobbyIntroVideoLoadError() {
     lobbyIntroVideoLoadStarted = false;
     lobbyNoticeEl.textContent = "Startsekvensen kunde inte laddas. Kontrollera anslutningen och försök igen.";
     lobbyIntroRetryButtonEl.hidden = false;
-    console.error("Kunde inte ladda intro-final.mp4.", lobbyIntroVideoEl.error);
+    console.error("Kunde inte ladda startsekvensen från Dropbox.", lobbyIntroVideoEl.error);
 }
 
 function scheduleLobbyCinematic(startAt) {

@@ -2,7 +2,7 @@
 
 ## Publicera på GitHub Pages
 
-Publicera innehållet i den här mappen som webbplatsens rot. `index.html` är startsidan; lämna `assets/`, videofilerna och övriga filer på samma relativa sökvägar.
+Publicera innehållet i den här mappen som webbplatsens rot. `index.html` är startsidan; lämna `assets/` och övriga filer på samma relativa sökvägar. Intro- och avslutningsvideorna strömmas från Dropbox och ingår inte som lokala MP4-filer i releasen.
 
 ## Firebase Realtime Database
 
