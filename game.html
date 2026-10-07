@@ -5376,6 +5376,8 @@ function getLoungeMediaSource(dataTransferValue) {
     return { source: "inventory", item: dataTransferValue };
 }
 
+let recordRemovalInProgress = false;
+
 function removeLoungeMediaFromSource(sourceData) {
     if (sourceData.source === "inventory") {
         if (!inventory.has(sourceData.item)) return false;
@@ -5412,6 +5414,7 @@ function removeLoungeMediaFromSource(sourceData) {
 
 async function takeRecordFromPlayer(record, destination = "inventory") {
     if (!isLoungeRecord(record) || loungeState.recordOnPlayer !== record) return false;
+    if (recordRemovalInProgress) return false;
     if (destination === "inventory" &&
         !inventory.has(record) &&
         occupiedInventorySlots() >= inventoryCapacity()) {
@@ -5423,34 +5426,65 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
         return false;
     }
 
+    recordRemovalInProgress = true;
     try {
         const result = await window.firebase.database()
-            .ref(`rooms/${activeLobbyId}/world/lounge`)
+            .ref(`rooms/${activeLobbyId}`)
             .transaction(current => {
-                if (!current || current.recordOnPlayer !== record) return;
+                const currentLounge = current?.world?.lounge;
+                if (!currentLounge || currentLounge.recordOnPlayer !== record) return;
+
                 const next = {
                     ...current,
-                    recordOnPlayer: null,
-                    playingRecord: null,
-                    closeEyesReadyAt: null
+                    world: {
+                        ...current.world,
+                        lounge: {
+                            ...currentLounge,
+                            recordOnPlayer: null,
+                            playingRecord: null,
+                            closeEyesReadyAt: null,
+                            ...(destination === "dumpspot"
+                                ? { dumpspotItems: [...(currentLounge.dumpspotItems || []), record] }
+                                : {})
+                        }
+                    }
                 };
-                if (destination === "dumpspot") {
-                    next.dumpspotItems = [...(current.dumpspotItems || []), record];
+
+                if (destination === "inventory") {
+                    const playerId = String(playerState.id);
+                    const currentPlayer = current.players?.[playerId] || {
+                        ...JSON.parse(JSON.stringify({
+                            ...playerState,
+                            team: activeLobbyId,
+                            inventory: [...inventory]
+                        }))
+                    };
+                    const currentInventory = Array.isArray(currentPlayer.inventory)
+                        ? currentPlayer.inventory
+                        : [];
+                    next.players = {
+                        ...(current.players || {}),
+                        [playerId]: {
+                            ...currentPlayer,
+                            inventory: [...new Set([...currentInventory, record])]
+                        }
+                    };
                 }
                 return next;
             });
 
         if (!result.committed) return false;
-        Object.assign(loungeState, result.snapshot.val(), {
+        const committedRoom = result.snapshot.val();
+        Object.assign(loungeState, committedRoom.world.lounge, {
             recordOnPlayer: null,
             playingRecord: null,
             closeEyesReadyAt: null
         });
         markSharedLoungeStateChanged();
-        if (destination === "inventory" && !tryAddInventoryItem(record)) {
-            showToast("Skivan togs ur spelaren, men kunde inte läggas i inventory.");
-        } else if (destination === "inventory") {
-            savePlayerState();
+        if (destination === "inventory") {
+            const savedInventory = committedRoom.players?.[String(playerState.id)]?.inventory;
+            inventory.clear();
+            (Array.isArray(savedInventory) ? savedInventory : []).forEach(item => inventory.add(item));
         }
         updateInventory();
         refreshScene();
@@ -5459,6 +5493,8 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
     } catch (error) {
         showFirebaseError("Skivan kunde inte tas ut ur skivspelaren.", error);
         return false;
+    } finally {
+        recordRemovalInProgress = false;
     }
 }
 
