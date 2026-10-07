@@ -688,11 +688,21 @@ body.environment-enabled.debug .hotspot {
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
 }
 
-.hotspot.toilet-spray-zone {
-    transition: opacity 2s ease;
+.hotspot.is-fading-out {
+    opacity: 0;
+    pointer-events: none;
 }
 
-.hotspot.toilet-spray-zone.is-fading {
+.hotspot.toilet-spray-zone {
+    transition: opacity 1s ease;
+}
+
+.hotspot.spirit-choice-locked {
+    transition: opacity 1s ease;
+}
+
+.hotspot.toilet-spray-zone.is-fading-out,
+.hotspot.spirit-choice-locked.is-fading-out {
     opacity: 0;
 }
 
@@ -6161,6 +6171,38 @@ const hamsterScaredAudioEl = document.getElementById("hamsterScaredAudio");
 const hamsterChargeAudioEl = document.getElementById("hamsterChargeAudio");
 const hamsterExplosionAudioEl = document.getElementById("hamsterExplosionAudio");
 const hamsterAudioEls = [hamsterSnoreAudioEl, hamsterScaredAudioEl, hamsterChargeAudioEl, hamsterExplosionAudioEl];
+const effectAudioEls = [
+    crowStartAudioEl,
+    simmerAudioEl,
+    kettleTimerAudioEl,
+    explosionAudioEl,
+    snapAudioEl,
+    crackAudioEl,
+    footstepsAudioEl,
+    doorAudioEl,
+    pickupItemAudioEl,
+    keysAudioEl,
+    batteryAudioEl,
+    hingeAudioEl,
+    ravenCawAudioEl,
+    wallDemoAudioEl,
+    sprayAudioEl,
+    potionBottledAudioEl,
+    gulpAudioEl,
+    tvAudioEl,
+    powerDownAudioEl,
+    wooshAudioEl,
+    eningExAudioEl,
+    kassandraDropAudioEl,
+    distantExplosionAudioEl,
+    spiritRampUpAudioEl,
+    roleAudioEl,
+    gaspAudioEl,
+    ...coughAudioEls,
+    ...hamsterAudioEls,
+    forestWaterAudioEl,
+    forestWindAudioEl
+];
 const kettleTimerDisplayEl = document.getElementById("kettleTimerDisplay");
 const explosionOverlayEl = document.getElementById("explosionOverlay");
 const explosionImageEl = document.getElementById("explosionImage");
@@ -8017,6 +8059,7 @@ let spiritSequenceToken = 0;
 let spiritSequenceTimer = null;
 let spiritRampUpTimer = null;
 let spiritSequenceInProgress = false;
+let spiritRemoteFrameToken = 0;
 let spiritRampUpStartedForSequence = false;
 let spiritRampUpPlaybackClaimed = false;
 let spiritDecisionCountdownInterval = null;
@@ -8270,6 +8313,47 @@ function waitForSpiritFrame(duration, token) {
     });
 }
 
+async function playRemoteSpiritFrames(frames, startedAt) {
+    const token = ++spiritRemoteFrameToken;
+    const sceneAtStart = currentScene;
+    const validFrames = Array.isArray(frames)
+        ? frames.filter(frame =>
+            typeof frame?.image === "string" &&
+            frame.image &&
+            Number.isFinite(frame.duration) &&
+            frame.duration > 0
+        )
+        : [];
+    if (!validFrames.length) return;
+
+    await Promise.all(validFrames.map(frame => preloadSceneImage(frame.image, "high")));
+    if (
+        token !== spiritRemoteFrameToken ||
+        !isSpiritCoopMember() ||
+        currentScene !== sceneAtStart
+    ) return;
+
+    let elapsed = Math.max(0, Date.now() - Number(startedAt || Date.now()));
+    for (const frame of validFrames) {
+        if (
+            token !== spiritRemoteFrameToken ||
+            !isSpiritCoopMember() ||
+            currentScene !== sceneAtStart
+        ) return;
+        if (elapsed >= frame.duration) {
+            elapsed -= frame.duration;
+            continue;
+        }
+
+        sceneEl.classList.add("spirit-no-transition");
+        sceneEl.classList.remove("fading");
+        sceneEl.style.backgroundImage = `url("${frame.image}")`;
+        sceneEl.querySelectorAll(".hotspot").forEach(el => el.remove());
+        await new Promise(resolve => setTimeout(resolve, frame.duration - elapsed));
+        elapsed = 0;
+    }
+}
+
 async function playSpiritSequence(frames, options = {}) {
     if (spiritSequenceInProgress) return;
     const { rampUpAlreadyStarted = false } = options;
@@ -8325,11 +8409,9 @@ async function playSpiritSequence(frames, options = {}) {
     // direkta i stället för att hacka medan bilden laddas/avkodas.
     const imageFrames = frames.filter(frame => frame.image);
     if (imageFrames.length) {
-        const frameImageLoads = imageFrames.map(frame => {
-                const img = new Image();
-                img.src = frame.image;
-                return img.decode ? img.decode().catch(() => {}) : Promise.resolve();
-            });
+        const frameImageLoads = imageFrames.map(frame =>
+            preloadSceneImage(frame.image, "high")
+        );
         if (heldFollowerImage?.decode) {
             frameImageLoads.push(heldFollowerImage.decode().catch(error => {
                 console.warn("Följaren kunde inte laddas:", error);
@@ -8364,6 +8446,23 @@ async function playSpiritSequence(frames, options = {}) {
         }
     }
 
+    if (
+        isActiveSpiritTraveler() &&
+        isSpiritCoopMember() &&
+        sequenceFrames.every(frame => frame.image)
+    ) {
+        loungeState.spiritSharedFrameImage = null;
+        sharedStateStore.write(LOUNGE_EVENT_KEY, JSON.stringify({
+            type: "spiritFrameSequence",
+            frames: sequenceFrames
+                .filter(frame => frame.image && Number.isFinite(frame.duration) && frame.duration > 0)
+                .map(({ image, duration }) => ({ image, duration })),
+            startedAt: Date.now(),
+            playerId: playerState.id,
+            timestamp: Date.now()
+        }));
+    }
+
     for (const frame of sequenceFrames) {
         if (token !== spiritSequenceToken) return;
 
@@ -8373,11 +8472,6 @@ async function playSpiritSequence(frames, options = {}) {
             sceneEl.classList.remove("fading");
             sceneEl.style.backgroundImage = `url("${frame.image}")`;
             sceneEl.querySelectorAll(".hotspot").forEach(el => el.remove());
-            if (isActiveSpiritTraveler()) {
-                loungeState.spiritSharedFrameImage = frame.image;
-                markSharedLoungeStateChanged();
-                saveWorldState();
-            }
         } else {
             if (isActiveSpiritTraveler()) loungeState.spiritSharedFrameImage = null;
             goToScene(frame.scene, { transition: false });
@@ -9269,6 +9363,16 @@ function publishSpiritVisionState(sceneId) {
         return;
     }
 
+    const current = latestSpiritVisionState;
+    if (
+        current?.sceneId === payload.sceneId &&
+        current.image === payload.image &&
+        current.spiritPlayerId === payload.spiritPlayerId &&
+        current.spiritPlayerName === payload.spiritPlayerName
+    ) {
+        return;
+    }
+
     latestSpiritVisionState = payload;
 
     sharedStateStore.write(
@@ -10105,11 +10209,6 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
             refreshScene();
         };
 
-        if (!playerHasRole("builder")) {
-            addItem("kitchenDoorKey");
-            return;
-        }
-
         showConfirm(
             "Varning",
             "Den som bär nycklarna bär ansvaret, och konsekvenserna. Vill du fortsätta?",
@@ -10447,7 +10546,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
         updateInventory();
         playSpraySound();
         showToast("Ahh.. MYCKET bättre");
-        sprayZone.classList.add("is-fading");
+        fadeOutHotspot(sprayZone);
         setTimeout(() => {
             hallState.scentSprayed = true;
             saveWorldState();
@@ -11192,6 +11291,24 @@ function isSpiritChaseScene(sceneId) {
     return sceneId?.startsWith("spiritTunnel") || /^spiritSwamp\d+$/.test(sceneId || "");
 }
 
+function fadeOutHotspot(element) {
+    if (!element || element.classList.contains("is-fading-out")) return;
+    element.classList.add("is-fading-out");
+    let removed = false;
+    const removeElement = () => {
+        if (removed) return;
+        removed = true;
+        clearTimeout(timeoutId);
+        element.removeEventListener("transitionend", handleTransitionEnd);
+        element.remove();
+    };
+    const handleTransitionEnd = event => {
+        if (event.target === element && event.propertyName === "opacity") removeElement();
+    };
+    const timeoutId = setTimeout(removeElement, 1200);
+    element.addEventListener("transitionend", handleTransitionEnd);
+}
+
 function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     const data = scenes[id];
         if (
@@ -11250,9 +11367,10 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
 
     const isRefresh = initialSceneRendered && id === currentScene;
     const staysInSpiritChase = isSpiritChaseScene(currentScene) && isSpiritChaseScene(id);
-    const shouldFade = !isRefresh && !staysInSpiritChase;
+    const shouldFade = transition && !isRefresh && !staysInSpiritChase;
     if (shouldFade) {
         sceneEl.classList.remove("spirit-no-transition");
+        sceneEl.classList.remove("fading");
     } else {
         sceneEl.classList.add("spirit-no-transition");
         sceneEl.classList.remove("fading");
@@ -11272,8 +11390,18 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
         sceneNameEl.textContent = data.name;
 
         // Rensa gamla hotspots och tidigare renderade dumpspot-föremål.
+        if (id === currentScene) {
+            sceneEl.querySelectorAll(".spirit-choice-locked[data-spirit-choice-key]").forEach(el => {
+                if ((loungeState.spiritUnlockedChoices || []).includes(el.dataset.spiritChoiceKey)) {
+                    fadeOutHotspot(el);
+                }
+            });
+            if (hallState.scentSprayed) {
+                fadeOutHotspot(sceneEl.querySelector(".toilet-spray-zone"));
+            }
+        }
         sceneEl
-            .querySelectorAll(".hotspot, .dumpspot-item, .spirit-equipment-stage, .spirit-equipment-overlay, .kassandra-fall-stage")
+            .querySelectorAll(".hotspot:not(.is-fading-out), .dumpspot-item, .spirit-equipment-stage, .spirit-equipment-overlay, .kassandra-fall-stage")
             .forEach(el => el.remove());
 
         const hotspots = typeof data.hotspots === "function" ? data.hotspots() : data.hotspots;
@@ -11346,6 +11474,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
                 !(loungeState.spiritUnlockedChoices || []).includes(spot.spiritChoiceKey);
             if (spiritChoiceLocked && spot.fogIcon) {
                 el.classList.add("spirit-choice-locked");
+                el.dataset.spiritChoiceKey = spot.spiritChoiceKey;
                 el.style.backgroundImage = `url("${spot.fogIcon}")`;
             }
 
@@ -11716,8 +11845,8 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
         const sceneImage = typeof data.image === "function" ? data.image() : data.image;
         preloadSceneImage(sceneImage).then(() => {
             if (sceneLoadRequest !== sceneLoadRequestId) return;
-            if (shouldFade) sceneEl.classList.add("fading");
-            sceneTransitionTimer = setTimeout(renderScene, shouldFade ? 200 : 0);
+            sceneEl.classList.add("fading");
+            sceneTransitionTimer = setTimeout(renderScene, 400);
         });
     } else {
         renderScene();
@@ -11736,6 +11865,7 @@ let lobbyIntroVideoReady = false;
 let lobbyIntroVideoLoadStarted = false;
 let lobbyIntroVideoStartAt = null;
 let lobbyIntroVideoStartTimer = null;
+let startupMediaPreloadPromise = null;
 let gameStarted = false;
 let activeReconnectCode = null;
 let removeFourthPlayerArmed = false;
@@ -12240,6 +12370,142 @@ function toggleLobbyReady() {
     saveLobbyRoom();
 }
 
+function addMediaUrls(value, urls) {
+    if (typeof value === "string") {
+        if (/\.(?:avif|gif|jpe?g|png|webp)(?:[?#]|$)/i.test(value)) urls.add(value);
+        return;
+    }
+    if (Array.isArray(value)) {
+        value.forEach(entry => addMediaUrls(entry, urls));
+        return;
+    }
+    if (value && typeof value === "object") {
+        Object.values(value).forEach(entry => addMediaUrls(entry, urls));
+    }
+}
+
+function getStartupSceneMedia() {
+    const backgroundUrls = new Set();
+    const interactableUrls = new Set();
+    const startupSceneEntries = Object.entries(scenes).filter(([id]) =>
+        id === "hall" || id.startsWith("exterior") || id.startsWith("ext_") || id.startsWith("kitchen")
+    );
+    const itemIds = new Set();
+
+    startupSceneEntries.forEach(([, scene]) => {
+        if (typeof scene.image === "function") {
+            addMediaUrls(scene.image(), backgroundUrls);
+        } else {
+            addMediaUrls(scene.image, backgroundUrls);
+        }
+        const hotspots = typeof scene.hotspots === "function" ? scene.hotspots() : scene.hotspots;
+        (hotspots || []).forEach(spot => {
+            addMediaUrls(spot, interactableUrls);
+            if (spot.item) itemIds.add(spot.item);
+            if (spot.recipeBookVisual) {
+                interactableUrls.add("assets/interactables/Kitchen/books_occult_with_recipe.webp");
+            }
+            if (spot.special === "mortar") {
+                [MORTAR_EMPTY_ICON, MORTAR_FILLED_ICON].forEach(url => interactableUrls.add(url));
+            }
+            if (spot.special === "cheeseWheel") {
+                [CHEESE_WHEEL_ICON, CHEESE_BITTEN_ICON].forEach(url => interactableUrls.add(url));
+            }
+            if (spot.target === "kitchenSafeLock") {
+                [SAFE_CLOSED_ICON, SAFE_OPEN_ICON].forEach(url => interactableUrls.add(url));
+            }
+            if (spot.special === "hookKey") {
+                [HOOK_WITH_KEY_ICON, HOOK_EMPTY_ICON].forEach(url => interactableUrls.add(url));
+            }
+        });
+    });
+
+    [
+        "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v01.webp",
+        "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v02.webp",
+        "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v03.webp",
+        "assets/environments/kitchen/WH_VIEW_KITCHEN_Fire_MASTER_v01.webp",
+        "assets/environments/kitchen/WH_VIEW_KITCHEN_Fire_large_MASTER_v01.webp",
+        "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_MASTER_v02.webp",
+        "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_Boiling_MASTER_v02.webp",
+        "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_Potion_MASTER_v02.webp",
+        "assets/environments/kitchen/WH_VIEW_KITCHEN_pantry_floor_MASTER_v01.webp",
+        "assets/environments/kitchen/WH_VIEW_KITCHEN_pantry_floor_Mousetrap_MASTER_v01.webp",
+        "assets/environments/kitchen/WH_VIEW_KITCHEN_pantry_floor_rattail_MASTER_v01.webp",
+        "assets/environments/kitchen/WH_ENV_KITCHEN_Safe_Lock_MASTER_v02.webp",
+        RAVEN_UNFED_IMAGE,
+        RAVEN_FED_IMAGE
+    ].forEach(url => backgroundUrls.add(url));
+
+    itemIds.forEach(item => {
+        if (itemIcons[item]) interactableUrls.add(itemIcons[item]);
+    });
+    addMediaUrls(KEY_PROGRESSION, interactableUrls);
+    addMediaUrls(tarotFanCards, interactableUrls);
+    [
+        MORTAR_EMPTY_ICON,
+        MORTAR_FILLED_ICON,
+        CHEESE_WHEEL_ICON,
+        CHEESE_BITTEN_ICON,
+        MOUSETRAP_RATTAIL_ICON,
+        SAFE_CLOSED_ICON,
+        SAFE_OPEN_ICON,
+        HOOK_WITH_KEY_ICON,
+        HOOK_EMPTY_ICON
+    ].forEach(url => interactableUrls.add(url));
+
+    return { backgrounds: [...backgroundUrls], interactables: [...interactableUrls] };
+}
+
+function preloadStartupAudio(audioEl) {
+    if (audioEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) return Promise.resolve(true);
+
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = loaded => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            audioEl.removeEventListener("loadeddata", onLoaded);
+            audioEl.removeEventListener("error", onError);
+            resolve(loaded);
+        };
+        const onLoaded = () => finish(true);
+        const onError = () => finish(false);
+        const timeoutId = setTimeout(() => finish(audioEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA), 15000);
+        audioEl.addEventListener("loadeddata", onLoaded, { once: true });
+        audioEl.addEventListener("error", onError, { once: true });
+        audioEl.preload = "auto";
+        audioEl.load();
+    });
+}
+
+async function preloadStartupMediaGroup(items, loader, label) {
+    const failedItems = [];
+    for (let offset = 0; offset < items.length; offset += 2) {
+        const batch = items.slice(offset, offset + 2);
+        const results = await Promise.all(batch.map(loader));
+        results.forEach((loaded, index) => {
+            if (!loaded) failedItems.push(batch[index]);
+        });
+    }
+    if (failedItems.length) {
+        console.warn(`Viss ${label}-media kunde inte förladdas.`, failedItems);
+    }
+}
+
+function preloadStartupMedia() {
+    if (startupMediaPreloadPromise) return startupMediaPreloadPromise;
+    const { backgrounds, interactables } = getStartupSceneMedia();
+    const startupLoads = [
+        preloadStartupMediaGroup(backgrounds, url => preloadSceneImage(url, "high"), "bakgrunds"),
+        preloadStartupMediaGroup(interactables, url => preloadSceneImage(url, "high"), "interaktions"),
+        preloadStartupMediaGroup(effectAudioEls, preloadStartupAudio, "ljud")
+    ];
+    startupMediaPreloadPromise = Promise.all(startupLoads);
+    return startupMediaPreloadPromise;
+}
+
 function loadLobbyIntroVideo() {
     if (gameStarted) return;
     if (!lobbyIntroVideoLoadStarted) {
@@ -12357,6 +12623,9 @@ initializeLobbyIntroVideo();
 function startLobbyIntro(startedAt) {
     if (lobbyIntroStarted || gameStarted) return;
     lobbyIntroStarted = true;
+    preloadStartupMedia().catch(error => {
+        console.error("Startmedia kunde inte förladdas.", error);
+    });
     if (environment) {
         lobbyIntroFinished = true;
         enterGameFromLobby();
@@ -13646,6 +13915,16 @@ sharedStateStore.subscribe(event => {
         }
         if (notice.type === "messengerRevived") {
             if (notice.playerId !== playerState.id) showToast("Budbäraren lever igen.");
+            return;
+        }
+        if (notice.type === "spiritFrameSequence") {
+            if (
+                notice.playerId !== playerState.id &&
+                isSpiritCoopMember() &&
+                Array.isArray(notice.frames)
+            ) {
+                playRemoteSpiritFrames(notice.frames, notice.startedAt);
+            }
             return;
         }
         if (notice.excludePlayerId !== playerState.id) {
