@@ -2188,6 +2188,18 @@ body.raven-wordle #ravenPuzzleOverlay {
     opacity: 0;
     transition: opacity 4s ease;
 }
+
+#builderDeathStatus {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin: 0;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font: 600 20px / 1.4 Segoe UI, sans-serif;
+    text-align: center;
+    letter-spacing: 0.04em;
+}
 /* =========================================================
    Kristallkula: siarens vy av Anderiket
    ========================================================= */
@@ -2846,7 +2858,9 @@ body.raven-wordle #ravenPuzzleOverlay {
 </div>
 <div id="spiritFailureOverlay" aria-hidden="true"></div>
 <div id="spiritWhiteOverlay" aria-hidden="true"></div>
-<div id="builderDeathOverlay" aria-hidden="true"></div>
+<div id="builderDeathOverlay" aria-hidden="true">
+    <p id="builderDeathStatus" role="status" aria-live="polite" hidden></p>
+</div>
 <div id="roleCardOverlay" role="dialog" aria-modal="true" aria-label="Din roll">
     <img id="roleCardImage" alt="Tilldelad roll">
 </div>
@@ -4411,11 +4425,11 @@ const firebaseReadyPromise = initializeFirebaseSharedStore();
 function updateFirebaseConnectionOverlay() {
     const message = firebaseFailureMessage ||
         (!firebaseConnected
-            ? "Anslutningen till spellobbyn bröts. Spelet pausas tills Firebase är tillgängligt igen."
+            ? "Kopplar upp dig mot blåkulla"
             : firebaseRoomErrors.size
                 ? "Kunde inte läsa spellobbyn från Firebase. Spelet pausas tills anslutningen fungerar igen."
                 : !firebaseInitialized
-                    ? "Ansluter till spellobbyn..."
+                    ? "Kopplar upp dig mot blåkulla"
                     : "");
     firebaseConnectionMessageEl.textContent = message;
     firebaseConnectionOverlayEl.hidden = !message;
@@ -5252,6 +5266,21 @@ function fadeInSceneAfterBuilderDeath(overlay) {
     }, 4000);
 }
 
+async function passToOtherSide(overlay) {
+    const status = document.getElementById("builderDeathStatus");
+    status.textContent = "Passerar till andra sidan";
+    status.hidden = false;
+
+    const failedMedia = await preloadSpiritRealmMedia();
+    if (failedMedia.length) {
+        console.warn("Viss media i Anderiket kunde inte förladdas.", failedMedia);
+    }
+
+    status.hidden = true;
+    goToScene("loungeSpiritArrival", { transition: false });
+    fadeInSceneAfterBuilderDeath(overlay);
+}
+
 let builderScaredEndHandler = null;
 
 function runBuilderShockSequence(isBuilder, builderName, isMessengerSpirit = false) {
@@ -5286,17 +5315,14 @@ function runBuilderShockSequence(isBuilder, builderName, isMessengerSpirit = fal
                         runBuilderDeathTransition(overlay => {
                             if (isBuilder) {
                                 showMessage("Du dog", "Byggaren chockades till döds.", () => {
-                                    goToScene("loungeSpiritArrival", { transition: false });
-                                    fadeInSceneAfterBuilderDeath(overlay);
+                                    passToOtherSide(overlay);
                                 });
                             } else if (isMessengerSpirit) {
                                 showMessage("Du dog", "Ström sköt upp ur din budväska och det blev för mycket", () => {
-                                    goToScene("loungeSpiritArrival", { transition: false });
-                                    fadeInSceneAfterBuilderDeath(overlay);
+                                    passToOtherSide(overlay);
                                 });
                             } else {
-                                goToScene("loungeSpiritArrival", { transition: false });
-                                fadeInSceneAfterBuilderDeath(overlay);
+                                passToOtherSide(overlay);
                             }
                         });
                     } else {
@@ -5372,6 +5398,57 @@ function removeLoungeMediaFromSource(sourceData) {
     }
 
     return false;
+}
+
+async function takeRecordFromPlayer(record, destination = "inventory") {
+    if (!isLoungeRecord(record) || loungeState.recordOnPlayer !== record) return false;
+    if (destination === "inventory" &&
+        !inventory.has(record) &&
+        occupiedInventorySlots() >= inventoryCapacity()) {
+        showToast(`Inventoryn är full (${inventoryCapacity()} ${inventoryCapacity() === 1 ? "plats" : "platser"}).`);
+        return false;
+    }
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized) {
+        showToast("Skivan kunde inte tas ut eftersom spellobbyn inte är ansluten.");
+        return false;
+    }
+
+    try {
+        const result = await window.firebase.database()
+            .ref(`rooms/${activeLobbyId}/world/lounge`)
+            .transaction(current => {
+                if (!current || current.recordOnPlayer !== record) return;
+                const next = {
+                    ...current,
+                    recordOnPlayer: null,
+                    playingRecord: null,
+                    closeEyesReadyAt: null
+                };
+                if (destination === "dumpspot") {
+                    next.dumpspotItems = [...(current.dumpspotItems || []), record];
+                }
+                return next;
+            });
+
+        if (!result.committed) return false;
+        Object.assign(loungeState, result.snapshot.val(), {
+            recordOnPlayer: null,
+            playingRecord: null,
+            closeEyesReadyAt: null
+        });
+        if (destination === "inventory" && !tryAddInventoryItem(record)) {
+            showToast("Skivan togs ur spelaren, men kunde inte läggas i inventory.");
+        } else if (destination === "inventory") {
+            savePlayerState();
+        }
+        updateInventory();
+        refreshScene();
+        syncLoungeAudio();
+        return true;
+    } catch (error) {
+        showFirebaseError("Skivan kunde inte tas ut ur skivspelaren.", error);
+        return false;
+    }
 }
 
 function broadcastPickup(item) {
@@ -6840,7 +6917,9 @@ function handleDumpspotInventoryDrop(event) {
 
     event.preventDefault();
     event.stopPropagation();
-    if (sourceData.source === "dumpspot") {
+    if (sourceData.source === "recordPlayer") {
+        takeRecordFromPlayer(sourceData.item);
+    } else if (sourceData.source === "dumpspot") {
         pickupDumpspotItem(sourceData.item);
     } else if (tryAddInventoryItem(sourceData.item) && removeLoungeMediaFromSource(sourceData)) {
         updateInventory();
@@ -7418,7 +7497,7 @@ function startHomeEndingSequence(startAt = hallState.homeEndingStartedAt) {
     if (!homeEndingSequenceActive) {
         homeEndingSequenceActive = true;
         document.body.classList.add("ending-sequence-active");
-        homeEndingOverlayEl.hidden = false;
+        homeEndingOverlayEl.hidden = environment;
         homeEndingVideoEl.hidden = true;
         document.querySelectorAll("audio").forEach(audio => audio.pause());
     }
@@ -7451,6 +7530,15 @@ function startHomeEndingSequence(startAt = hallState.homeEndingStartedAt) {
             finishHomeEndingSequence();
             return;
         }
+        if (environment && Number.isFinite(duration)) {
+            homeEndingVideoStarted = true;
+            homeEndingStartTimer = setTimeout(() => {
+                homeEndingStartTimer = null;
+                if (homeEndingSequenceActive) finishHomeEndingSequence();
+            }, Math.max(0, (duration - elapsed) * 1000));
+            return;
+        }
+        homeEndingOverlayEl.hidden = false;
         homeEndingVideoEl.hidden = false;
         homeEndingStatusEl.hidden = true;
         if (elapsed > 0) homeEndingVideoEl.currentTime = elapsed;
@@ -8620,11 +8708,13 @@ function renderSpiritEquipmentOverlays(sceneId) {
 }
 
 function equipSpiritFlashlight() {
+    if (!inventory.has("spiritFlashlight") || loungeState.spiritFlashlightEquipped) return;
+
     inventory.delete("spiritFlashlight");
+    updateInventory();
     loungeState.spiritFlashlightEquipped = true;
     markSharedLoungeStateChanged();
     saveWorldState();
-    updateInventory();
 
     if (currentScene === "spiritTunnel") {
         goToScene("spiritTunnelLight");
@@ -8737,12 +8827,17 @@ function handleSpiritOuijaMessage(text, sceneId = currentScene) {
     if (!matchedSpot) return correct;
 
     const unlocked = loungeState.spiritUnlockedChoices || [];
-    if (!unlocked.includes(matchedSpot.spiritChoiceKey)) {
+    const choiceAlreadyUnlocked = unlocked.includes(matchedSpot.spiritChoiceKey);
+    const equipmentFlag = SPIRIT_EQUIPMENT_FLAGS[matchedSpot.special];
+    const equipmentAlreadyReady = !equipmentFlag || loungeState[equipmentFlag];
+    if (choiceAlreadyUnlocked && equipmentAlreadyReady) return correct;
+
+    if (!choiceAlreadyUnlocked) {
         loungeState.spiritUnlockedChoices = [...unlocked, matchedSpot.spiritChoiceKey];
         if (matchedSpot.fogIcon) playWooshSound();
     }
-    if (SPIRIT_EQUIPMENT_FLAGS[matchedSpot.special]) {
-        loungeState[SPIRIT_EQUIPMENT_FLAGS[matchedSpot.special]] = true;
+    if (equipmentFlag) {
+        loungeState[equipmentFlag] = true;
     }
 
     markSharedLoungeStateChanged();
@@ -9007,6 +9102,102 @@ const SPIRIT_SEQUENCES = {
         onComplete: () => goToScene("spiritSwamp19", { transition: false })
     }
 };
+
+const SPIRIT_SEQUENCE_IMAGE_PATTERN = /\.(?:avif|gif|jpe?g|png|webp)(?:[?#]|$)/i;
+
+function collectSpiritImageUrls(value, urls) {
+    if (typeof value === "string") {
+        if (SPIRIT_SEQUENCE_IMAGE_PATTERN.test(value)) urls.add(value);
+        return;
+    }
+    if (Array.isArray(value)) {
+        value.forEach(entry => collectSpiritImageUrls(entry, urls));
+        return;
+    }
+    if (value && typeof value === "object") {
+        Object.values(value).forEach(entry => collectSpiritImageUrls(entry, urls));
+    }
+}
+
+function preloadSpiritAudio(audioEl) {
+    if (audioEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        return Promise.resolve(true);
+    }
+
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = loaded => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            audioEl.removeEventListener("loadeddata", onReady);
+            audioEl.removeEventListener("error", onError);
+            resolve(loaded);
+        };
+        const onReady = () => finish(true);
+        const onError = () => finish(false);
+        const timeoutId = setTimeout(() => finish(false), 8000);
+        audioEl.addEventListener("loadeddata", onReady, { once: true });
+        audioEl.addEventListener("error", onError, { once: true });
+        audioEl.preload = "auto";
+        audioEl.load();
+    });
+}
+
+async function preloadSpiritRealmMedia() {
+    const imageUrls = new Set([SPIRIT_FOG_IMAGE]);
+    SPIRIT_REALM_STEPS.forEach(step => imageUrls.add(SPIRIT_REALM_FOLDER + step.file));
+    collectSpiritImageUrls(SPIRIT_HOTSPOTS, imageUrls);
+    collectSpiritImageUrls(SPIRIT_EQUIPMENT_OVERLAYS, imageUrls);
+    collectSpiritImageUrls(SPIRIT_SEQUENCES, imageUrls);
+    [
+        "assets/interactables/Spirit/WH_AST_Follower.webp",
+        "assets/interactables/Spirit/WH_AST_Follower_defeated.webp",
+        "assets/interactables/Spirit/WH_AST_Iventory_Flashlight_v01.webp"
+    ].forEach(url => imageUrls.add(url));
+    Object.values(SPIRIT_SEQUENCES).forEach(sequence => {
+        sequence.frames.forEach(frame => {
+            if (frame.scene && scenes[frame.scene]) {
+                collectSpiritImageUrls(scenes[frame.scene].image, imageUrls);
+            }
+        });
+    });
+
+    const audioElements = [
+        spiritMusicAudioEl,
+        spiritHuntMusicAudioEl,
+        spiritRampUpAudioEl,
+        forestWaterAudioEl,
+        forestWindAudioEl,
+        document.getElementById("wooshAudio")
+    ];
+    const failedUrls = [];
+    const urls = [...imageUrls];
+
+    for (let offset = 0; offset < urls.length; offset += 4) {
+        const batch = urls.slice(offset, offset + 4);
+        const results = await Promise.all(batch.map(url => preloadSceneImage(url, "high")));
+        results.forEach((loaded, index) => {
+            if (!loaded) failedUrls.push(batch[index]);
+        });
+    }
+
+    const failedImages = [...failedUrls];
+    failedUrls.length = 0;
+    for (let offset = 0; offset < failedImages.length; offset += 4) {
+        const batch = failedImages.slice(offset, offset + 4);
+        const results = await Promise.all(batch.map(url => preloadSceneImage(url, "high")));
+        results.forEach((loaded, index) => {
+            if (!loaded) failedUrls.push(batch[index]);
+        });
+    }
+
+    const audioResults = await Promise.all(audioElements.map(preloadSpiritAudio));
+    audioResults.forEach((loaded, index) => {
+        if (!loaded) failedUrls.push(audioElements[index].currentSrc || audioElements[index].src);
+    });
+    return failedUrls;
+}
 
 function startNamedSpiritSequence(sequenceName) {
     const sequence = SPIRIT_SEQUENCES[sequenceName];
@@ -10019,6 +10210,10 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
             showToast("Här kan du endast lägga skivor och albumfodral.");
             return;
         }
+        if (dragged.source === "recordPlayer") {
+            takeRecordFromPlayer(draggedItem, "dumpspot");
+            return;
+        }
         if (dragged.source === "inventory" && !inventory.has(draggedItem)) {
             showToast("Föremålet finns inte längre i inventory.");
             return;
@@ -10739,12 +10934,8 @@ function renderLoungeRecordOnPlayer() {
     recordEl.addEventListener("click", event => {
         event.stopPropagation();
         const record = loungeState.recordOnPlayer;
-        if (!record || !tryAddInventoryItem(record)) return;
-        removeLoungeMediaFromSource({ source: "recordPlayer", item: record });
-        updateInventory();
-        saveWorldState();
-        refreshScene();
-        syncLoungeAudio();
+        if (!record) return;
+        takeRecordFromPlayer(record);
     });
     recordEl.addEventListener("dragstart", event => {
         const record = loungeState.recordOnPlayer;
@@ -10944,14 +11135,14 @@ document.addEventListener("drop", () => {
     document.body.classList.remove("item-dragging");
 }, true);
 
-function preloadSceneImage(imageUrl) {
+function preloadSceneImage(imageUrl, priority = "low") {
     if (!imageUrl) return Promise.resolve(false);
     const cached = sceneImageCache.get(imageUrl);
     if (cached) return cached;
 
     const image = new Image();
     image.decoding = "async";
-    image.fetchPriority = "low";
+    image.fetchPriority = priority;
     let settled = false;
     let timeoutId;
     let resolveImage;
@@ -12166,6 +12357,11 @@ initializeLobbyIntroVideo();
 function startLobbyIntro(startedAt) {
     if (lobbyIntroStarted || gameStarted) return;
     lobbyIntroStarted = true;
+    if (environment) {
+        lobbyIntroFinished = true;
+        enterGameFromLobby();
+        return;
+    }
     loadLobbyIntroVideo();
     lobbyShellEl.classList.add("page-turning");
     const headingEl = document.getElementById("lobbyIntroHeading");
@@ -12319,6 +12515,24 @@ function startWithTestPlayers() {
     sharedStateStore.write(LOBBY_STATE_KEY, JSON.stringify(currentLobbyRoom));
     document.body.classList.add("debug");
     enterGameFromLobby();
+}
+
+function saveDebugPlayerState(seat, updates) {
+    const id = Number(seat);
+    if (!environment || !Number.isInteger(id) || id < 1 || id > LOBBY_MAX_PLAYER_COUNT) return;
+
+    const storageKey = `${PLAYER_STATE_KEY_PREFIX}${id}`;
+    const savedPlayer = JSON.parse(sharedStateStore.read(storageKey) || "{}");
+    const lobbyPlayer = currentLobbyRoom?.players?.[String(id)];
+    const nextPlayer = {
+        ...savedPlayer,
+        id,
+        name: lobbyPlayer?.name || TEST_TEAM.players[id]?.name || savedPlayer.name || `Player ${id}`,
+        team: activeLobbyId,
+        ...updates
+    };
+    sharedStateStore.write(storageKey, JSON.stringify(nextPlayer));
+    return nextPlayer;
 }
 
 function leaveLobby() {
@@ -12724,16 +12938,12 @@ function setKitchenCompletedDebugState() {
     pickedUpItems.add("labKey");
 
     Object.keys(TEST_TEAM.players).forEach(id => {
-        const storageKey = `${PLAYER_STATE_KEY_PREFIX}${id}`;
-        const savedPlayer = JSON.parse(sharedStateStore.read(storageKey) || "{}");
-        savedPlayer.id = Number(id);
-        savedPlayer.name = TEST_TEAM.players[id].name;
-        savedPlayer.team = TEST_TEAM.team;
-        savedPlayer.role = Number(id) === 1 ? "builder" : null;
-        savedPlayer.scene = "upperHallway";
-        savedPlayer.potionDrunk = false;
-        savedPlayer.inventory = Number(id) === 1 ? ["kitchenDoorKey"] : [];
-        sharedStateStore.write(storageKey, JSON.stringify(savedPlayer));
+        saveDebugPlayerState(id, {
+            role: Number(id) === 1 ? "builder" : null,
+            scene: "upperHallway",
+            potionDrunk: false,
+            inventory: Number(id) === 1 ? ["kitchenDoorKey"] : []
+        });
     });
 
     loungeState.roles = { listener: null, watcher: null, builder: 1, messenger: null };
@@ -12761,10 +12971,12 @@ function setLoungeSolvedDebugState() {
 
     const roles = { 1: "builder", 2: "listener", 3: "watcher" };
     Object.entries(roles).forEach(([id, role]) => {
-        const storageKey = `${PLAYER_STATE_KEY_PREFIX}${id}`;
-        const savedPlayer = JSON.parse(sharedStateStore.read(storageKey));
-        savedPlayer.role = role;
-        sharedStateStore.write(storageKey, JSON.stringify(savedPlayer));
+        saveDebugPlayerState(id, {
+            role,
+            scene: "upperHallway",
+            potionDrunk: false,
+            inventory: Number(id) === 1 ? ["kitchenDoorKey"] : []
+        });
     });
 
     loungeState.roles = { listener: 2, watcher: 3, builder: 1, messenger: null };
@@ -12847,16 +13059,12 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
     worldState.unlockedDoors.add("loungeDoor");
 
     Object.entries(sceneByPlayer).forEach(([id, scene]) => {
-        const storageKey = `${PLAYER_STATE_KEY_PREFIX}${id}`;
-        const savedPlayer = JSON.parse(sharedStateStore.read(storageKey) || "{}");
-        savedPlayer.id = Number(id);
-        savedPlayer.name = TEST_TEAM.players[id].name;
-        savedPlayer.team = TEST_TEAM.team;
-        savedPlayer.scene = scene;
-        savedPlayer.role = roleByPlayer[id];
-        savedPlayer.potionDrunk = false;
-        if (Number(id) === 1) savedPlayer.inventory = [];
-        sharedStateStore.write(storageKey, JSON.stringify(savedPlayer));
+        saveDebugPlayerState(id, {
+            scene,
+            role: roleByPlayer[id],
+            potionDrunk: false,
+            ...(Number(id) === 1 ? { inventory: [] } : {})
+        });
     });
 
     Object.assign(loungeState, {
