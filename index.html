@@ -11167,8 +11167,15 @@ function readLobbyRoom(lobbyId = activeLobbyId) {
     if (!lobbyId) return { players: {}, playerLimit: LOBBY_DEFAULT_PLAYER_COUNT, startedAt: null, cinematicStartedAt: null };
     try {
         const saved = JSON.parse(sharedStateStore.read(`wh_lobbyState_${lobbyId}`) || "null");
+        const savedPlayers = saved?.players && typeof saved.players === "object" && !Array.isArray(saved.players)
+            ? saved.players
+            : {};
         return {
-            players: saved?.players && typeof saved.players === "object" ? saved.players : {},
+            players: Object.fromEntries(
+                Object.entries(savedPlayers).filter(([, player]) =>
+                    player && typeof player === "object" && !Array.isArray(player)
+                )
+            ),
             playerLimit: saved?.playerLimit === LOBBY_MAX_PLAYER_COUNT
                 ? LOBBY_MAX_PLAYER_COUNT
                 : LOBBY_DEFAULT_PLAYER_COUNT,
@@ -11264,7 +11271,7 @@ function beginLobbyJoin() {
     currentLobbyRoom = readLobbyRoom(selectedLobbyId);
     if (currentLobbyRoom.startedAt) {
         const existingPlayer = Object.values(currentLobbyRoom.players)
-            .some(player => player.sessionId === lobbySessionId);
+            .some(player => player?.sessionId === lobbySessionId);
         if (!existingPlayer) {
             lobbyNoticeEl.textContent = "Spelet i den här lobbyn har redan startat.";
             return;
@@ -11293,7 +11300,7 @@ function joinSelectedLobby() {
 
     currentLobbyRoom = readLobbyRoom(activeLobbyId);
     const existingSeat = Object.entries(currentLobbyRoom.players)
-        .find(([, player]) => player.sessionId === lobbySessionId)?.[0];
+        .find(([, player]) => player?.sessionId === lobbySessionId)?.[0];
     const requestedSeat = Number(params.get("player"));
     let seatId = existingSeat ? Number(existingSeat) : null;
 
@@ -11566,7 +11573,7 @@ function restoreLobbySession() {
         const ownSeat = debugSeat || Object.keys(room.players).find(seat =>
             Number(seat) <= room.playerLimit &&
             (!localKirkeDebug || Number(seat) === requestedSeat) &&
-            room.players[seat].sessionId === lobbySessionId
+            room.players[seat]?.sessionId === lobbySessionId
         );
         if (!ownSeat) continue;
 
