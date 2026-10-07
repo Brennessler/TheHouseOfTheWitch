@@ -2705,6 +2705,7 @@ body.raven-wordle #ravenPuzzleOverlay {
                 <div id="adminCodeList"></div>
                 <div class="lobby-actions">
                     <button id="adminRefreshCodesButton" class="lobby-secondary" type="button">Uppdatera</button>
+                    <button id="continueAsAdminButton" class="lobby-primary" type="button">Fortsätt till spelet</button>
                     <button id="adminSignOutButton" class="lobby-secondary" type="button">Logga ut</button>
                 </div>
             </div>
@@ -2783,7 +2784,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 <audio id="simmerAudio" src="assets/audio/Simmering.mp3" loop preload="none"></audio>
 <audio id="kettleTimerAudio" src="assets/audio/timer.mp3" loop preload="none"></audio>
 <audio id="explosionAudio" src="assets/audio/potion_explosion.mp3" preload="none"></audio>
-<audio id="snapAudio" src="assets/audio/snap.mp3" preload="none"></audio>
+<audio id="snapAudio" src="assets/audio/snap.mp3" preload="auto"></audio>
 <audio id="crackAudio" src="assets/audio/crack.mp3" preload="none"></audio>
 <audio id="footstepsAudio" src="assets/audio/footsteps.mp3" preload="none"></audio>
 <audio id="doorAudio" src="assets/audio/door.mp3" preload="none"></audio>
@@ -3103,9 +3104,17 @@ body.raven-wordle #ravenPuzzleOverlay {
 <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-database-compat.js"></script>
 <script>
 
-// Set to false for release builds to hide and disable developer tools.
-const environment = false;
-document.body.classList.toggle("environment-enabled", environment);
+const ADMIN_DEBUG_EMAILS = new Set(["adrian.nessler@teliacompany.com"]);
+let environment = false;
+
+function updateAdminDebugAccess(user) {
+    environment = Boolean(
+        user?.email &&
+        ADMIN_DEBUG_EMAILS.has(user.email.trim().toLowerCase())
+    );
+    document.body.classList.toggle("environment-enabled", environment);
+    if (!environment) document.body.classList.remove("debug");
+}
 
 const startScene = "exterior";
 let sceneTransitionTimer;
@@ -4239,7 +4248,8 @@ const playerState = {
     role: null,
     scene: startScene,
     inventory: new Set(),
-    seenFlavors: []
+    seenFlavors: [],
+    kettleExplosionReturnsHandledId: 0
 };
 
 function isPlayer1() { return playerState.id === 1; }
@@ -4277,8 +4287,11 @@ const worldState = {
         kettleBoiling: false,
         kettlePotion: false,
         kettleIngredients: new Set(),
+        kettleIngredientOwners: {},
         kettleTimerEndsAt: null,
         kettleExploded: false,
+        kettleExplosionId: 0,
+        kettleExplosionReturns: null,
         recipeBookOpened: false
     },
     laboratory: {},
@@ -4666,6 +4679,7 @@ async function initializeFirebaseSharedStore() {
             ? window.firebase.app()
             : window.firebase.initializeApp(FIREBASE_CONFIG);
         const auth = window.firebase.auth(app);
+        auth.onAuthStateChanged(updateAdminDebugAccess);
         if (!auth.currentUser) await auth.signInAnonymously();
 
         const database = window.firebase.database(app);
@@ -5491,7 +5505,14 @@ function loadWorldState() {
     (saved.unlockedDoors || []).forEach(doorId => worldState.unlockedDoors.add(doorId));
 
     if (saved.kitchen) {
-        Object.assign(worldState.kitchen, saved.kitchen, { kettleIngredients: new Set(saved.kitchen.kettleIngredients || []) });
+        Object.assign(worldState.kitchen, saved.kitchen, {
+            kettleIngredients: new Set(saved.kitchen.kettleIngredients || []),
+            kettleIngredientOwners: saved.kitchen.kettleIngredientOwners || {},
+            kettleTimerEndsAt: saved.kitchen.kettleTimerEndsAt ?? null,
+            kettlePotion: saved.kitchen.kettlePotion ?? false,
+            kettleExploded: saved.kitchen.kettleExploded ?? false,
+            kettleExplosionReturns: saved.kitchen.kettleExplosionReturns ?? null
+        });
     }
 
     Object.assign(worldState.laboratory, saved.laboratory || {});
@@ -6217,7 +6238,7 @@ function playSnapSound() {
     snapAudioEl.currentTime = 0;
     snapAudioEl.volume = fxVolume;
     snapAudioEl.muted = fxMuted;
-    snapAudioEl.play().catch(() => {});
+    snapAudioEl.play().catch(error => console.warn("Fälljudet kunde inte spelas:", error));
 }
 
 // Spelas när en spelare navigerar mellan scener
@@ -6536,26 +6557,140 @@ function updateKettleAmbience() {
     }
 }
 
-// Skörden misslyckas: återställer ingredienserna och sparar delat tillstånd - effekterna spelas upp av alla via tickKettleTimer
-function triggerKettleExplosion() {
-    if (kitchenState.kettleExploded) return;
+const KETTLE_INGREDIENTS = ["crowFeather", "moonDust", "ratTail"];
+let kettleExplosionClaimPending = false;
 
-    kitchenState.kettleExploded = true;
-    kitchenState.kettleTimerEndsAt = null;
+function applyKettleSnapshot(kitchen) {
+    Object.assign(kitchenState, kitchen, {
+        kettleIngredients: new Set(Array.isArray(kitchen.kettleIngredients) ? kitchen.kettleIngredients : []),
+        kettleIngredientOwners: kitchen.kettleIngredientOwners || {},
+        kettleTimerEndsAt: kitchen.kettleTimerEndsAt ?? null,
+        kettlePotion: kitchen.kettlePotion ?? false,
+        kettleExploded: kitchen.kettleExploded ?? false,
+        kettleExplosionReturns: kitchen.kettleExplosionReturns ?? null
+    });
+}
 
-    kitchenState.kettleIngredients.forEach(item => {
+function returnKettleIngredientsToContributor() {
+    const returns = kitchenState.kettleExplosionReturns;
+    const explosionId = Number(returns?.id) || 0;
+    if (!explosionId || explosionId <= Number(playerState.kettleExplosionReturnsHandledId || 0)) return;
+
+    let returnedToTable = false;
+    Object.entries(returns.owners || {}).forEach(([item, ownerId]) => {
+        if (Number(ownerId) !== Number(playerState.id) || inventory.has(item)) return;
         if (!tryAddInventoryItem(item, { notify: false })) {
             ensurePlacedItems("kitchenTable").push(item);
+            returnedToTable = true;
         }
     });
-    kitchenState.kettleIngredients.clear();
-    updateInventory();
 
-    playExplosionEffects();
+    playerState.kettleExplosionReturnsHandledId = explosionId;
+    updateInventory();
+    savePlayerState();
+    if (returnedToTable) saveWorldState();
+}
+
+async function triggerKettleExplosion() {
+    const expectedTimerEnd = Number(kitchenState.kettleTimerEndsAt);
+    if (kettleExplosionClaimPending || kitchenState.kettleExploded ||
+        !expectedTimerEnd || expectedTimerEnd > Date.now()) return;
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized) return;
+
+    kettleExplosionClaimPending = true;
+    try {
+        const result = await window.firebase.database()
+            .ref(`rooms/${activeLobbyId}/world/kitchen`)
+            .transaction(current => {
+                if (!current || current.kettleExploded || current.kettlePotion ||
+                    Number(current.kettleTimerEndsAt) !== expectedTimerEnd ||
+                    Number(current.kettleTimerEndsAt) > Date.now()) return;
+
+                const explosionId = (Number(current.kettleExplosionId) || 0) + 1;
+                const owners = { ...(current.kettleIngredientOwners || {}) };
+                (current.kettleIngredients || []).forEach(item => {
+                    owners[item] ??= playerState.id;
+                });
+                return {
+                    ...current,
+                    kettleExploded: true,
+                    kettleTimerEndsAt: null,
+                    kettleIngredients: [],
+                    kettleIngredientOwners: {},
+                    kettleExplosionId: explosionId,
+                    kettleExplosionReturns: {
+                        id: explosionId,
+                        owners
+                    }
+                };
+            });
+
+        const kitchen = result.snapshot.val();
+        if (!kitchen) return;
+        applyKettleSnapshot(kitchen);
+        if (!result.committed) return;
+        returnKettleIngredientsToContributor();
+        playExplosionEffects();
+    } catch (error) {
+        showFirebaseError("Grytan kunde inte synkronisera smällen med alla spelare.", error);
+    } finally {
+        kettleExplosionClaimPending = false;
+    }
+}
+
+async function addKettleIngredient(item) {
+    if (!inventory.has(item)) return;
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized) {
+        showToast("Ingrediensen kunde inte läggas i grytan eftersom spellobbyn inte är ansluten.");
+        return;
+    }
+
+    try {
+        const result = await window.firebase.database()
+            .ref(`rooms/${activeLobbyId}/world/kitchen`)
+            .transaction(current => {
+                const kitchen = current && typeof current === "object" ? current : {};
+                const ingredients = Array.isArray(kitchen.kettleIngredients)
+                    ? [...kitchen.kettleIngredients]
+                    : [];
+                if (!kitchen.kettleBoiling || kitchen.kettlePotion || kitchen.kettleExploded ||
+                    !KETTLE_INGREDIENTS.includes(item) || ingredients.includes(item)) return;
+
+                ingredients.push(item);
+                const owners = { ...(kitchen.kettleIngredientOwners || {}), [item]: playerState.id };
+                const potionComplete = KETTLE_INGREDIENTS.every(ingredient => ingredients.includes(ingredient));
+                return {
+                    ...kitchen,
+                    kettleIngredients: ingredients,
+                    kettleIngredientOwners: owners,
+                    kettlePotion: potionComplete,
+                    kettleTimerEndsAt: potionComplete ? null : Date.now() + 5000
+                };
+            });
+
+        const kitchen = result.snapshot.val();
+        if (kitchen) applyKettleSnapshot(kitchen);
+        if (!result.committed) {
+            showToast("Det går inte att lägga det i kitteln.");
+            return;
+        }
+        if (!kitchen) return;
+        inventory.delete(item);
+        savePlayerState();
+        updateInventory();
+        updateKettleAmbience();
+        showToast(kitchen.kettlePotion
+            ? "Brygden bubblar upp och blir lila!"
+            : `${itemNames[item]} hälls i kitteln.`);
+        refreshScene();
+    } catch (error) {
+        showFirebaseError("Ingrediensen kunde inte sparas i grytan.", error);
+    }
 }
 
 // Svärtar skärmen, spelar smockan och visar meddelandet - körs lokalt av VARJE spelare
 function playExplosionEffects() {
+    if (explosionEffectsActive) return;
     explosionEffectsActive = true;
 
     simmerAudioEl.pause();
@@ -6563,7 +6698,7 @@ function playExplosionEffects() {
     explosionAudioEl.currentTime = 0;
     explosionAudioEl.volume = fxVolume;
     explosionAudioEl.muted = fxMuted;
-    explosionAudioEl.play().catch(() => {});
+    explosionAudioEl.play().catch(error => console.warn("Explosionsljudet kunde inte spelas:", error));
 
     explosionImageEl.style.opacity = "0";
     explosionOverlayEl.classList.add("visible");
@@ -6573,17 +6708,49 @@ function playExplosionEffects() {
     }, 300);
 
     setTimeout(() => {
+        const explosionId = Number(kitchenState.kettleExplosionId) || 0;
         showMessage("Vilken jävla smäll", "Var det där enligt receptet?", () => {
-            // Delat tillstånd - tickKettleTimer återställer scenen för ALLA spelare när detta synkas
-            kitchenState.kettleExploded = false;
-            saveWorldState();
+            retryKettleAfterExplosion(explosionId);
         }, "Testa igen");
     }, 2300);
 }
 
+async function retryKettleAfterExplosion(explosionId) {
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized) {
+        showToast("Spelet kunde inte startas om eftersom spellobbyn inte är ansluten.");
+        return;
+    }
+
+    try {
+        const result = await window.firebase.database()
+            .ref(`rooms/${activeLobbyId}/world/kitchen`)
+            .transaction(current => {
+                if (!current?.kettleExploded ||
+                    Number(current.kettleExplosionId) !== explosionId) return;
+                return {
+                    ...current,
+                    kettleExploded: false,
+                    kettleTimerEndsAt: null,
+                    kettleExplosionReturns: null
+                };
+            });
+        const kitchen = result.snapshot.val();
+        if (kitchen) applyKettleSnapshot(kitchen);
+    } catch (error) {
+        showFirebaseError("Spelet kunde inte startas om för alla spelare.", error);
+    }
+}
+
 // Kollar den delade kittel-timern varje tick så alla spelare ser samma nedräkning och smäll
 function tickKettleTimer() {
+    if (kitchenState.kettlePotion) {
+        kettleTimerDisplayEl.classList.remove("visible");
+        updateKettleAmbience();
+        return;
+    }
+
     if (kitchenState.kettleExploded) {
+        returnKettleIngredientsToContributor();
         if (!explosionEffectsActive) {
             playExplosionEffects();
         }
@@ -7455,6 +7622,7 @@ function addItem(item) {
 
     if (usesInventorySlot && !tryAddInventoryItem(item, { notify: false })) return;
     pickedUpItems.add(item);
+    savePlayerState();
     updateInventory();
     showToast(`Du plockade upp ${itemNames[item]}.`);
     broadcastPickup(item);
@@ -7521,6 +7689,7 @@ function combineItems(firstItem, secondItem) {
         inventory.delete(coverId);
         inventory.add(result);
 
+        savePlayerState();
         updateInventory();
 
         showToast(`${record.name} placerades i ${cover.name}.`);
@@ -7542,6 +7711,7 @@ function combineItems(firstItem, secondItem) {
     inventory.delete(secondItem);
     inventory.add(recipe.result);
 
+    savePlayerState();
     updateInventory();
 
     showToast(
@@ -9749,16 +9919,11 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
             return;
         }
 
-        if (currentScene === "ext_pole") {
-            showConfirm(
-                "Varning",
-                "Den som bär nycklarna bär ansvaret, och konsekvenserna. Vill du fortsätta?",
-                collectHookKey
-            );
-            return;
-        }
-
-        collectHookKey();
+        showConfirm(
+            "Varning",
+            "Den som bär nycklarna bär ansvaret, och konsekvenserna. Vill du fortsätta?",
+            collectHookKey
+        );
         return;
     }
 
@@ -10114,35 +10279,14 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
             return;
         }
 
-        const kettleIngredients = ["crowFeather", "moonDust", "ratTail"];
-
-        if (!kettleIngredients.includes(draggedItem) || !inventory.has(draggedItem) || kitchenState.kettleIngredients.has(draggedItem)) {
+        if (!KETTLE_INGREDIENTS.includes(draggedItem) ||
+            !inventory.has(draggedItem) ||
+            kitchenState.kettleIngredients.has(draggedItem)) {
             showToast("Det går inte att lägga det i kitteln.");
             return;
         }
 
-        inventory.delete(draggedItem);
-        kitchenState.kettleIngredients.add(draggedItem);
-
-        const potionComplete = kitchenState.kettleIngredients.size === kettleIngredients.length;
-
-        if (potionComplete) {
-            kitchenState.kettlePotion = true;
-            kitchenState.kettleTimerEndsAt = null;
-            updateKettleAmbience();
-        } else {
-            kitchenState.kettleTimerEndsAt = Date.now() + 5000;
-        }
-
-        updateInventory();
-
-        if (potionComplete) {
-            showToast("Brygden bubblar upp och blir lila!");
-        } else {
-            showToast(`${itemNames[draggedItem]} hälls i kitteln.`);
-        }
-
-        refreshScene();
+        addKettleIngredient(draggedItem);
     }
 }
 
@@ -10853,6 +10997,10 @@ function preloadNeighborSceneImages(hotspots, currentSceneId) {
     });
 }
 
+function isSpiritChaseScene(sceneId) {
+    return sceneId?.startsWith("spiritTunnel") || /^spiritSwamp\d+$/.test(sceneId || "");
+}
+
 function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     const data = scenes[id];
         if (
@@ -10900,6 +11048,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     // Fällan hinner fångas medan spelarna är ute i dörrscenen
     if (id === "kitchenDoor" && kitchenState.trapState === "cheese") {
         kitchenState.trapState = "ratTail";
+        saveWorldState();
         playSnapSound();
     }
 
@@ -10909,8 +11058,11 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     );
 
     const isRefresh = initialSceneRendered && id === currentScene;
-    const shouldFade = transition && !isRefresh;
-    if (!transition) {
+    const staysInSpiritChase = isSpiritChaseScene(currentScene) && isSpiritChaseScene(id);
+    const shouldFade = !isRefresh && !staysInSpiritChase;
+    if (shouldFade) {
+        sceneEl.classList.remove("spirit-no-transition");
+    } else {
         sceneEl.classList.add("spirit-no-transition");
         sceneEl.classList.remove("fading");
     }
@@ -11369,7 +11521,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
             openRavenPuzzle();
         }
     };
-    if (transition) {
+    if (shouldFade) {
         const sceneImage = typeof data.image === "function" ? data.image() : data.image;
         preloadSceneImage(sceneImage).then(() => {
             if (sceneLoadRequest !== sceneLoadRequestId) return;
@@ -11847,6 +11999,7 @@ async function loginAdmin(event) {
             document.getElementById("adminEmailInput").value.trim(),
             document.getElementById("adminPasswordInput").value
         );
+        updateAdminDebugAccess(auth.currentUser);
         await refreshAdminReconnectCodes();
         lobbyNoticeEl.textContent = "";
         lobbyTitleFormEl.hidden = true;
@@ -11865,6 +12018,7 @@ async function logoutAdmin() {
     try {
         await window.firebase.auth().signOut();
         await window.firebase.auth().signInAnonymously();
+        updateAdminDebugAccess(window.firebase.auth().currentUser);
         adminCodeResultsEl.hidden = true;
         adminLoginFormEl.hidden = true;
         lobbyTitleFormEl.hidden = false;
@@ -12281,6 +12435,16 @@ document.getElementById("adminRefreshCodesButton").addEventListener("click", asy
     }
 });
 document.getElementById("adminSignOutButton").addEventListener("click", logoutAdmin);
+document.getElementById("continueAsAdminButton").addEventListener("click", () => {
+    if (!environment) {
+        lobbyNoticeEl.textContent = "Debugläge kräver inloggning med det godkända administratörskontot.";
+        return;
+    }
+    adminCodeResultsEl.hidden = true;
+    lobbyTitleFormEl.hidden = false;
+    lobbyNoticeEl.textContent = "Adminläge aktivt. Starta en lobby och tryck Ctrl+D under spelet för checkpoints och presets.";
+    lobbyPasswordInputEl.focus();
+});
 reconnectCodeValueEl.addEventListener("click", copyReconnectCode);
 inGameReconnectCodeEl.addEventListener("click", copyReconnectCode);
 document.getElementById("backToLobbyChoiceButton").addEventListener("click", () => {
@@ -12327,9 +12491,10 @@ document.getElementById("removeLobbyPlayerButton").addEventListener("click", () 
     saveLobbyRoom();
 });
 document.getElementById("leaveLobbyButton").addEventListener("click", leaveLobby);
-if (environment) {
-    document.getElementById("startTestPlayersButton").addEventListener("click", startWithTestPlayers);
-}
+document.getElementById("startTestPlayersButton").addEventListener("click", () => {
+    if (!environment) return;
+    startWithTestPlayers();
+});
 document.getElementById("lobbyDebugToggle").addEventListener("click", event => {
     if (!environment) return;
     const debugPanel = document.getElementById("lobbyDebugPanel");
@@ -12543,8 +12708,10 @@ function setKitchenCompletedDebugState() {
         kettleBoiling: false,
         kettlePotion: false,
         kettleIngredients: new Set(),
+        kettleIngredientOwners: {},
         kettleTimerEndsAt: null,
         kettleExploded: false,
+        kettleExplosionReturns: null,
         recipeBookOpened: true
     });
     hallState.wallBroken = true;
@@ -12665,8 +12832,10 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
         kettleBoiling: false,
         kettlePotion: false,
         kettleIngredients: new Set(),
+        kettleIngredientOwners: {},
         kettleTimerEndsAt: null,
         kettleExploded: false,
+        kettleExplosionReturns: null,
         recipeBookOpened: true
     });
     hallState.wallBroken = true;
@@ -12766,8 +12935,10 @@ function resetWorldState() {
         kettleBoiling: false,
         kettlePotion: false,
         kettleIngredients: new Set(),
+        kettleIngredientOwners: {},
         kettleTimerEndsAt: null,
         kettleExploded: false,
+        kettleExplosionReturns: null,
         recipeBookOpened: false
     });
 
