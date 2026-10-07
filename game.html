@@ -3,7 +3,7 @@
 
 <head>
 <meta charset="UTF-8">
-<title>Häxans hus - Navigation</title>
+<title>Häxans hus</title>
 <link rel="icon" type="image/png" href="assets/ui/WH_UI_pointer_cursor.png">
 
 <style>
@@ -240,6 +240,75 @@ body.ending-sequence-active {
     box-sizing: border-box;
     color: #eee4d2;
     text-align: center;
+}
+
+.lobby-book-form[hidden],
+#reconnectCodeDisplay[hidden],
+#adminCodeResults[hidden] {
+    display: none !important;
+}
+
+#reconnectCodeDisplay {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 12px;
+    color: #f3ead9;
+    background: rgba(20, 16, 13, .76);
+    border: 1px solid #8d7049;
+}
+
+#reconnectCodeValue {
+    padding: 0;
+    color: #f2d295;
+    background: none;
+    border: 0;
+    font: 700 1.05em monospace;
+    letter-spacing: .08em;
+    cursor: pointer !important;
+}
+
+#inGameReconnectCode {
+    position: fixed;
+    top: 145px;
+    left: 10px;
+    z-index: 20;
+    padding: 8px 12px;
+    color: #f2d295;
+    background: rgba(0, 0, 0, .72);
+    border: 1px solid #9e8a65;
+    border-radius: 6px;
+    font: 700 12px monospace;
+    cursor: pointer !important;
+}
+
+#inGameReconnectCode[hidden] {
+    display: none !important;
+}
+
+#adminCodeResults {
+    max-height: 150px;
+    overflow: auto;
+    text-align: left;
+}
+
+.admin-code-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(209, 174, 113, .35);
+    font-size: 12px;
+}
+
+.admin-code-row code {
+    color: #f2d295;
+    font-weight: 700;
 }
 
 .lobby-book-form h1,
@@ -489,6 +558,7 @@ body.ending-sequence-active {
 body.in-lobby #viewport,
 body.in-lobby #inventory,
 body.in-lobby #volumeControls,
+body.in-lobby #inGameReconnectCode,
 body.in-lobby #debugPanel,
 body.in-lobby #toast,
 body.in-lobby #message {
@@ -2605,8 +2675,39 @@ body.raven-wordle #ravenPuzzleOverlay {
                 <input id="lobbyPasswordInput" type="text" autocomplete="off" required>
                 <div class="lobby-actions">
                     <button id="lobbyUnlockButton" class="lobby-primary" type="submit">Fortsätt</button>
+                    <button id="showReconnectFormButton" class="lobby-secondary" type="button">Återanslutningskod</button>
                 </div>
             </form>
+            <form id="reconnectCodeForm" class="lobby-book-form" autocomplete="off" hidden>
+                <h2>Återanslut</h2>
+                <p>Ange din personliga återanslutningskod för att återta din plats.</p>
+                <label for="reconnectCodeInput">Återanslutningskod</label>
+                <input id="reconnectCodeInput" type="text" maxlength="14" autocomplete="one-time-code" required>
+                <div class="lobby-actions">
+                    <button class="lobby-primary" type="submit">Återanslut</button>
+                    <button id="backFromReconnectButton" class="lobby-secondary" type="button">Tillbaka</button>
+                </div>
+            </form>
+            <form id="adminLoginForm" class="lobby-book-form" autocomplete="on" hidden>
+                <h2>Administratör</h2>
+                <p>Logga in med admin-kontot i Firebase Authentication.</p>
+                <label for="adminEmailInput">E-post</label>
+                <input id="adminEmailInput" type="email" autocomplete="username" required>
+                <label for="adminPasswordInput">Lösenord</label>
+                <input id="adminPasswordInput" type="password" autocomplete="current-password" required>
+                <div class="lobby-actions">
+                    <button class="lobby-primary" type="submit">Visa återanslutningskoder</button>
+                    <button id="backFromAdminButton" class="lobby-secondary" type="button">Tillbaka</button>
+                </div>
+            </form>
+            <div id="adminCodeResults" class="lobby-book-form" hidden>
+                <h2>Återanslutningskoder</h2>
+                <div id="adminCodeList"></div>
+                <div class="lobby-actions">
+                    <button id="adminRefreshCodesButton" class="lobby-secondary" type="button">Uppdatera</button>
+                    <button id="adminSignOutButton" class="lobby-secondary" type="button">Logga ut</button>
+                </div>
+            </div>
         </section>
 
         <section id="lobbyNameView" class="lobby-book-view" hidden>
@@ -2624,6 +2725,10 @@ body.raven-wordle #ravenPuzzleOverlay {
         <section id="lobbyWaitingView" class="lobby-book-view" hidden>
             <h2 id="lobbyWaitingHeading"></h2>
             <p id="lobbyWaitingStatus" class="lobby-subtitle" aria-live="polite"></p>
+            <p id="reconnectCodeDisplay" hidden>
+                <span>Din återanslutningskod:</span>
+                <button id="reconnectCodeValue" type="button" title="Klicka för att kopiera koden"></button>
+            </p>
             <ul id="lobbyRoster" aria-label="Spelare i lobbyn"></ul>
             <div class="lobby-actions">
                 <button id="lobbyReadyButton" class="lobby-primary" type="button">Redo</button>
@@ -2673,51 +2778,51 @@ body.raven-wordle #ravenPuzzleOverlay {
     <p id="firebaseConnectionMessage"></p>
 </div>
 
-<audio id="startMenuAudio" src="assets/audio/start.mp3" loop preload="auto"></audio>
-<audio id="crowStartAudio" src="assets/audio/Crow_start.mp3" loop preload="auto"></audio>
-<audio id="simmerAudio" src="assets/audio/Simmering.mp3" loop preload="auto"></audio>
-<audio id="kettleTimerAudio" src="assets/audio/timer.mp3" loop preload="auto"></audio>
-<audio id="explosionAudio" src="assets/audio/potion_explosion.mp3" preload="auto"></audio>
-<audio id="snapAudio" src="assets/audio/snap.mp3" preload="auto"></audio>
-<audio id="crackAudio" src="assets/audio/crack.mp3" preload="auto"></audio>
-<audio id="footstepsAudio" src="assets/audio/footsteps.mp3" preload="auto"></audio>
-<audio id="doorAudio" src="assets/audio/door.mp3" preload="auto"></audio>
-<audio id="pickupItemAudio" src="assets/audio/pick_up_item.mp3" preload="auto"></audio>
-<audio id="keysAudio" src="assets/audio/keys.mp3" preload="auto"></audio>
-<audio id="batteryAudio" src="assets/audio/battery.mp3" preload="auto"></audio>
-<audio id="hingeAudio" src="assets/audio/hinge.mp3" preload="auto"></audio>
-<audio id="ravenCawAudio" src="assets/audio/Caw.mp3" preload="auto"></audio>
-<audio id="wallDemoAudio" src="assets/audio/wallDemo.mp3" preload="auto"></audio>
-<audio id="sprayAudio" src="assets/audio/spray.mp3" preload="auto"></audio>
-<audio id="potionBottledAudio" src="assets/audio/potion_bottled.mp3" preload="auto"></audio>
-<audio id="gulpAudio" src="assets/audio/gulp.mp3" preload="auto"></audio>
-<audio id="tvAudio" src="assets/audio/tv.mp3" loop preload="auto"></audio>
-<audio id="powerDownAudio" src="assets/audio/power_down.mp3" preload="auto"></audio>
-<audio id="wooshAudio" src="assets/audio/woosh.mp3" preload="auto"></audio>
-<audio id="eningExAudio" src="assets/audio/Ending_ex.mp3" preload="auto"></audio>
-<audio id="kassandraDropAudio" src="assets/audio/drop.mp3" preload="auto"></audio>
-<audio id="distantExplosionAudio" src="assets/audio/freesound_community-distant-explosion-80398.mp3" preload="auto"></audio>
-<audio id="spiritRampUpAudio" src="assets/audio/Ramp%20up.mp3" preload="auto"></audio>
-<audio id="roleAudio" src="assets/audio/role.mp3" preload="auto"></audio>
-<audio id="gaspAudio" src="assets/audio/gasp.mp3" preload="auto"></audio>
-<audio id="cough1Audio" src="assets/audio/cough1.mp3" preload="auto"></audio>
-<audio id="cough2Audio" src="assets/audio/cough2.mp3" preload="auto"></audio>
-<audio id="cough3Audio" src="assets/audio/cough3.mp3" preload="auto"></audio>
-<audio id="hamsterSnoreAudio" src="assets/audio/snore.mp3" loop preload="auto"></audio>
-<audio id="hamsterScaredAudio" src="assets/audio/Scared.mp3" preload="auto"></audio>
-<audio id="hamsterChargeAudio" src="assets/audio/Charge.mp3" preload="auto"></audio>
-<audio id="hamsterExplosionAudio" src="assets/audio/Electric-Explosion.mp3" preload="auto"></audio>
-<audio id="ambientMusicAudio" src="assets/audio/Once Upon a Quiet Night.mp3" loop preload="auto"></audio>
-<audio id="forestWaterAudio" src="assets/audio/water.mp3" loop preload="auto"></audio>
-<audio id="forestWindAudio" src="assets/audio/wind.mp3" loop preload="auto"></audio>
-<audio id="kitchenMusicAudio" src="assets/audio/Curious Cozy Unease.mp3" loop preload="auto"></audio>
-<audio id="loungeMusicAudio" src="assets/audio/Whimsical Library Themes.mp3" loop preload="auto"></audio>
-<audio id="seanceMusicAudio" src="assets/audio/Quaint Village Lullaby.mp3" loop preload="auto"></audio>
-<audio id="spiritMusicAudio" src="assets/audio/Spirit Woods.mp3" loop preload="auto"></audio>
-<audio id="spiritHuntMusicAudio" src="assets/audio/Omnis Tenebrae Hunt.mp3" loop preload="auto"></audio>
-<audio id="loungeAudio01" src="assets/audio/Nirvana - Something In The Way (Audio).mp3" preload="auto"></audio>
-<audio id="loungeAudio02" src="assets/audio/listen before i go.mp3" preload="auto"></audio>
-<audio id="loungeAudio03" src="assets/audio/Black Sabbath - Black Sabbath.mp3" preload="auto"></audio>
+<audio id="startMenuAudio" src="assets/audio/start.mp3" loop preload="none"></audio>
+<audio id="crowStartAudio" src="assets/audio/Crow_start.mp3" loop preload="none"></audio>
+<audio id="simmerAudio" src="assets/audio/Simmering.mp3" loop preload="none"></audio>
+<audio id="kettleTimerAudio" src="assets/audio/timer.mp3" loop preload="none"></audio>
+<audio id="explosionAudio" src="assets/audio/potion_explosion.mp3" preload="none"></audio>
+<audio id="snapAudio" src="assets/audio/snap.mp3" preload="none"></audio>
+<audio id="crackAudio" src="assets/audio/crack.mp3" preload="none"></audio>
+<audio id="footstepsAudio" src="assets/audio/footsteps.mp3" preload="none"></audio>
+<audio id="doorAudio" src="assets/audio/door.mp3" preload="none"></audio>
+<audio id="pickupItemAudio" src="assets/audio/pick_up_item.mp3" preload="none"></audio>
+<audio id="keysAudio" src="assets/audio/keys.mp3" preload="none"></audio>
+<audio id="batteryAudio" src="assets/audio/battery.mp3" preload="none"></audio>
+<audio id="hingeAudio" src="assets/audio/hinge.mp3" preload="none"></audio>
+<audio id="ravenCawAudio" src="assets/audio/Caw.mp3" preload="none"></audio>
+<audio id="wallDemoAudio" src="assets/audio/wallDemo.mp3" preload="none"></audio>
+<audio id="sprayAudio" src="assets/audio/spray.mp3" preload="none"></audio>
+<audio id="potionBottledAudio" src="assets/audio/potion_bottled.mp3" preload="none"></audio>
+<audio id="gulpAudio" src="assets/audio/gulp.mp3" preload="none"></audio>
+<audio id="tvAudio" src="assets/audio/tv.mp3" loop preload="none"></audio>
+<audio id="powerDownAudio" src="assets/audio/power_down.mp3" preload="none"></audio>
+<audio id="wooshAudio" src="assets/audio/woosh.mp3" preload="none"></audio>
+<audio id="eningExAudio" src="assets/audio/Ending_ex.mp3" preload="none"></audio>
+<audio id="kassandraDropAudio" src="assets/audio/drop.mp3" preload="none"></audio>
+<audio id="distantExplosionAudio" src="assets/audio/freesound_community-distant-explosion-80398.mp3" preload="none"></audio>
+<audio id="spiritRampUpAudio" src="assets/audio/Ramp%20up.mp3" preload="none"></audio>
+<audio id="roleAudio" src="assets/audio/role.mp3" preload="none"></audio>
+<audio id="gaspAudio" src="assets/audio/gasp.mp3" preload="none"></audio>
+<audio id="cough1Audio" src="assets/audio/cough1.mp3" preload="none"></audio>
+<audio id="cough2Audio" src="assets/audio/cough2.mp3" preload="none"></audio>
+<audio id="cough3Audio" src="assets/audio/cough3.mp3" preload="none"></audio>
+<audio id="hamsterSnoreAudio" src="assets/audio/snore.mp3" loop preload="none"></audio>
+<audio id="hamsterScaredAudio" src="assets/audio/Scared.mp3" preload="none"></audio>
+<audio id="hamsterChargeAudio" src="assets/audio/Charge.mp3" preload="none"></audio>
+<audio id="hamsterExplosionAudio" src="assets/audio/Electric-Explosion.mp3" preload="none"></audio>
+<audio id="ambientMusicAudio" src="assets/audio/Once Upon a Quiet Night.mp3" loop preload="none"></audio>
+<audio id="forestWaterAudio" src="assets/audio/water.mp3" loop preload="none"></audio>
+<audio id="forestWindAudio" src="assets/audio/wind.mp3" loop preload="none"></audio>
+<audio id="kitchenMusicAudio" src="assets/audio/Curious Cozy Unease.mp3" loop preload="none"></audio>
+<audio id="loungeMusicAudio" src="assets/audio/Whimsical Library Themes.mp3" loop preload="none"></audio>
+<audio id="seanceMusicAudio" src="assets/audio/Quaint Village Lullaby.mp3" loop preload="none"></audio>
+<audio id="spiritMusicAudio" src="assets/audio/Spirit Woods.mp3" loop preload="none"></audio>
+<audio id="spiritHuntMusicAudio" src="assets/audio/Omnis Tenebrae Hunt.mp3" loop preload="none"></audio>
+<audio id="loungeAudio01" src="assets/audio/Nirvana - Something In The Way (Audio).mp3" preload="none"></audio>
+<audio id="loungeAudio02" src="assets/audio/listen before i go.mp3" preload="none"></audio>
+<audio id="loungeAudio03" src="assets/audio/Black Sabbath - Black Sabbath.mp3" preload="none"></audio>
 <div id="volumeControls">
     <label>
         <span>Music</span>
@@ -2730,6 +2835,7 @@ body.raven-wordle #ravenPuzzleOverlay {
         <button id="fxMuteBtn" type="button" class="mute-btn">🔊</button>
     </label>
 </div>
+<button id="inGameReconnectCode" type="button" hidden title="Klicka för att kopiera återanslutningskoden"></button>
 <div id="kettleTimerDisplay"></div>
 <div id="explosionOverlay">
     <div id="explosionImage"></div>
@@ -3003,6 +3109,8 @@ document.body.classList.toggle("environment-enabled", environment);
 
 const startScene = "exterior";
 let sceneTransitionTimer;
+let sceneLoadRequestId = 0;
+const sceneImageCache = new Map();
 const LOBBY_CONFIGS = {
     pomperipossa: { name: "Pomperipossa" },
     kirke: { name: "Kirke" },
@@ -4447,14 +4555,14 @@ function mergeFirebaseLobby(current, incoming, previous) {
 
 function writeFirebaseValue(key, value, previousValue) {
     const path = firebasePathForStorageKey(key);
-    if (!path) return;
+    if (!path) return Promise.resolve(false);
     if (!firebaseConnected || !firebaseInitialized || firebaseRoomErrors.size) {
         showFirebaseError("Ingen data sparades eftersom Firebase inte är anslutet. Vänta på återanslutning och försök igen.");
-        return;
+        return Promise.resolve(false);
     }
     if (!window.firebase?.apps?.length) {
         showFirebaseError("Firebase SDK saknas. Ingen delad data sparades.");
-        return;
+        return Promise.resolve(false);
     }
 
     let parsedValue = null;
@@ -4464,7 +4572,7 @@ function writeFirebaseValue(key, value, previousValue) {
             parsedValue = JSON.parse(value);
         } catch (error) {
             showFirebaseError("Speldata kunde inte skickas till Firebase.", error);
-            return;
+            return Promise.resolve(false);
         }
     }
     if (previousValue !== null && previousValue !== undefined) {
@@ -4472,16 +4580,16 @@ function writeFirebaseValue(key, value, previousValue) {
             previousData = JSON.parse(previousValue);
         } catch (error) {
             showFirebaseError("Tidigare speldata kunde inte läsas från den lokala cachen.", error);
-            return;
+            return Promise.resolve(false);
         }
     }
 
     const reference = window.firebase.database().ref(path);
     if (value === null) {
-        reference.remove().catch(error => {
+        return reference.remove().then(() => true).catch(error => {
             showFirebaseError("Kunde inte rensa speldata i Firebase. Kontrollera databasreglerna och anslutningen.", error);
+            return false;
         });
-        return;
     }
     const roomMatch = /^rooms\/([^/]+)\/(lobby|world)$/.exec(path);
     const save = roomMatch
@@ -4489,8 +4597,9 @@ function writeFirebaseValue(key, value, previousValue) {
             ? mergeFirebaseLobby(current, parsedValue, previousData)
             : mergeFirebaseState(current, parsedValue, previousData))
         : reference.set(parsedValue);
-    save.catch(error => {
+    return save.then(() => true).catch(error => {
         showFirebaseError("Kunde inte spara speldata i Firebase. Kontrollera databasreglerna och anslutningen.", error);
+        return false;
     });
 }
 
@@ -4627,10 +4736,10 @@ function createFirebaseSharedStateStore() {
         },
         write(key, value) {
             const previousValue = firebaseSharedStateCache.get(key) ?? null;
-            writeFirebaseValue(key, value, previousValue);
+            return writeFirebaseValue(key, value, previousValue);
         },
         remove(key) {
-            writeFirebaseValue(key, null);
+            return writeFirebaseValue(key, null);
         },
         subscribe(listener) {
             window.addEventListener("storage", listener);
@@ -10691,6 +10800,59 @@ document.addEventListener("drop", () => {
     document.body.classList.remove("item-dragging");
 }, true);
 
+function preloadSceneImage(imageUrl) {
+    if (!imageUrl) return Promise.resolve(false);
+    const cached = sceneImageCache.get(imageUrl);
+    if (cached) return cached;
+
+    const image = new Image();
+    image.decoding = "async";
+    image.fetchPriority = "low";
+    let settled = false;
+    let timeoutId;
+    let resolveImage;
+    const finish = loaded => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolveImage(loaded);
+    };
+    const loadPromise = new Promise(resolve => {
+        resolveImage = resolve;
+        image.onload = () => {
+            clearTimeout(timeoutId);
+            if (typeof image.decode === "function") {
+                timeoutId = setTimeout(() => finish(true), 3000);
+                image.decode().then(() => finish(true)).catch(() => finish(true));
+            } else {
+                finish(true);
+            }
+        };
+        image.onerror = () => {
+            sceneImageCache.delete(imageUrl);
+            finish(false);
+        };
+    });
+    timeoutId = setTimeout(() => {
+        sceneImageCache.delete(imageUrl);
+        finish(false);
+    }, 10000);
+    sceneImageCache.set(imageUrl, loadPromise);
+    image.src = imageUrl;
+    return loadPromise;
+}
+
+function preloadNeighborSceneImages(hotspots, currentSceneId) {
+    const nextSceneIds = new Set(hotspots
+        .map(spot => spot.target)
+        .filter(target => target && target !== currentSceneId && scenes[target]));
+    nextSceneIds.forEach(sceneId => {
+        const data = scenes[sceneId];
+        const imageUrl = typeof data.image === "function" ? data.image() : data.image;
+        preloadSceneImage(imageUrl);
+    });
+}
+
 function goToScene(id, { debugNavigation = false, transition = true } = {}) {
     const data = scenes[id];
         if (
@@ -10748,15 +10910,15 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
 
     const isRefresh = initialSceneRendered && id === currentScene;
     const shouldFade = transition && !isRefresh;
-    if (shouldFade) {
-        sceneEl.classList.add("fading");
-    } else if (!transition) {
+    if (!transition) {
         sceneEl.classList.add("spirit-no-transition");
         sceneEl.classList.remove("fading");
     }
 
     clearTimeout(sceneTransitionTimer);
+    const sceneLoadRequest = ++sceneLoadRequestId;
     const renderScene = () => {
+        if (sceneLoadRequest !== sceneLoadRequestId) return;
         const sceneImage = typeof data.image === "function"
             ? data.image()
             : data.image;
@@ -10772,6 +10934,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
             .forEach(el => el.remove());
 
         const hotspots = typeof data.hotspots === "function" ? data.hotspots() : data.hotspots;
+        preloadNeighborSceneImages(hotspots, id);
         hotspots.forEach(spot => {
             const usesBottomNavBounds = (spot.label?.startsWith("Tillbaka") &&
                 id !== "loungeDesk" &&
@@ -11207,7 +11370,12 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
         }
     };
     if (transition) {
-        sceneTransitionTimer = setTimeout(renderScene, shouldFade ? 200 : 0);
+        const sceneImage = typeof data.image === "function" ? data.image() : data.image;
+        preloadSceneImage(sceneImage).then(() => {
+            if (sceneLoadRequest !== sceneLoadRequestId) return;
+            if (shouldFade) sceneEl.classList.add("fading");
+            sceneTransitionTimer = setTimeout(renderScene, shouldFade ? 200 : 0);
+        });
     } else {
         renderScene();
     }
@@ -11226,6 +11394,7 @@ let lobbyIntroVideoLoadStarted = false;
 let lobbyIntroVideoStartAt = null;
 let lobbyIntroVideoStartTimer = null;
 let gameStarted = false;
+let activeReconnectCode = null;
 let removeFourthPlayerArmed = false;
 let removeFourthPlayerTimer = null;
 let lobbyClearConfirmTimer = null;
@@ -11235,6 +11404,7 @@ sessionStorage.setItem("wh_lobbySessionId", lobbySessionId);
 const lobbyScreenEl = document.getElementById("lobbyScreen");
 const lobbyShellEl = document.querySelector(".lobby-shell");
 const lobbyPasswordViewEl = document.getElementById("lobbyPasswordView");
+const lobbyTitleFormEl = document.getElementById("lobbyTitleForm");
 const lobbyNameViewEl = document.getElementById("lobbyNameView");
 const lobbyWaitingViewEl = document.getElementById("lobbyWaitingView");
 const lobbyIntroViewEl = document.getElementById("lobbyIntroView");
@@ -11249,6 +11419,92 @@ const lobbyIntroVideoOverlayEl = document.getElementById("lobbyIntroVideoOverlay
 const lobbyIntroVideoEl = document.getElementById("lobbyIntroVideo");
 const lobbyIntroVideoMessageEl = document.getElementById("lobbyIntroVideoMessage");
 const lobbyIntroVideoRetryButtonEl = document.getElementById("lobbyIntroVideoRetry");
+const reconnectCodeFormEl = document.getElementById("reconnectCodeForm");
+const reconnectCodeInputEl = document.getElementById("reconnectCodeInput");
+const reconnectCodeDisplayEl = document.getElementById("reconnectCodeDisplay");
+const reconnectCodeValueEl = document.getElementById("reconnectCodeValue");
+const inGameReconnectCodeEl = document.getElementById("inGameReconnectCode");
+const adminLoginFormEl = document.getElementById("adminLoginForm");
+const adminCodeResultsEl = document.getElementById("adminCodeResults");
+const adminCodeListEl = document.getElementById("adminCodeList");
+
+const RECONNECT_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generateReconnectCode() {
+    const randomBytes = new Uint8Array(12);
+    const code = [];
+    while (code.length < 12) {
+        crypto.getRandomValues(randomBytes);
+        randomBytes.forEach(byte => {
+            if (byte < 224 && code.length < 12) {
+                code.push(RECONNECT_CODE_ALPHABET[byte % RECONNECT_CODE_ALPHABET.length]);
+            }
+        });
+    }
+    return code.join("");
+}
+
+function formatReconnectCode(code) {
+    return code.match(/.{1,4}/g)?.join("-") || code;
+}
+
+function normalizeReconnectCode(code) {
+    return String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+async function saveReconnectCode(code, record) {
+    if (!firebaseConnected || !firebaseInitialized) {
+        throw new Error("Firebase är inte anslutet.");
+    }
+    await window.firebase.database().ref(`reconnectCodes/${code}`).set(record);
+}
+
+function setVisibleReconnectCode(code) {
+    activeReconnectCode = code || null;
+    const formattedCode = code ? formatReconnectCode(code) : "";
+    reconnectCodeValueEl.textContent = formattedCode;
+    reconnectCodeDisplayEl.hidden = !code;
+    inGameReconnectCodeEl.textContent = code ? `Kod: ${formattedCode}` : "";
+    inGameReconnectCodeEl.hidden = !code || !gameStarted;
+}
+
+async function copyReconnectCode() {
+    if (!activeReconnectCode) return;
+    try {
+        await navigator.clipboard.writeText(formatReconnectCode(activeReconnectCode));
+        if (gameStarted) showToast("Återanslutningskoden kopierades.");
+        else lobbyNoticeEl.textContent = "Återanslutningskoden kopierades.";
+    } catch (error) {
+        console.error("Återanslutningskoden kunde inte kopieras.", error);
+        if (gameStarted) showToast("Kopiering misslyckades. Markera koden och kopiera den manuellt.");
+        else lobbyNoticeEl.textContent = "Kopiering misslyckades. Markera koden och kopiera den manuellt.";
+    }
+}
+
+function ensurePlayerReconnectCode(lobbyId, seatId, player) {
+    if (player.reconnectId) return;
+    const code = generateReconnectCode();
+    const reconnectId = crypto.randomUUID();
+    player.reconnectId = reconnectId;
+    const persisted = sharedStateStore.write(
+        `wh_lobbyState_${lobbyId}`,
+        JSON.stringify(currentLobbyRoom)
+    );
+    persisted.then(async saved => {
+        if (!saved) return;
+        try {
+            await saveReconnectCode(code, {
+                lobbyId,
+                seat: seatId,
+                playerName: player.name || `Spelare ${seatId}`,
+                reconnectId,
+                createdAt: Date.now()
+            });
+        } catch (error) {
+            console.error("Återanslutningskoden kunde inte sparas.", error);
+        }
+    });
+}
 
 function readLobbyRoom(lobbyId = activeLobbyId) {
     if (!lobbyId) return { players: {}, playerLimit: LOBBY_DEFAULT_PLAYER_COUNT, startedAt: null, cinematicStartedAt: null };
@@ -11278,11 +11534,12 @@ function readLobbyRoom(lobbyId = activeLobbyId) {
     };
 }
 
-function saveLobbyRoom() {
-    if (!activeLobbyId || !currentLobbyRoom) return;
-    sharedStateStore.write(LOBBY_STATE_KEY, JSON.stringify(currentLobbyRoom));
+function saveLobbyRoom({ startIntro = true } = {}) {
+    if (!activeLobbyId || !currentLobbyRoom) return Promise.resolve(false);
+    const saved = sharedStateStore.write(LOBBY_STATE_KEY, JSON.stringify(currentLobbyRoom));
     renderLobbyRoster();
-    if (currentLobbyRoom.startedAt) startLobbyIntro(currentLobbyRoom.startedAt);
+    if (startIntro && currentLobbyRoom.startedAt) startLobbyIntro(currentLobbyRoom.startedAt);
+    return saved;
 }
 
 function showLobbyView(view) {
@@ -11347,6 +11604,14 @@ function renderLobbyRoster() {
 
 function beginLobbyJoin() {
     const enteredTitle = normalizeLobbyTitle(lobbyPasswordInputEl.value);
+    if (enteredTitle === "admin") {
+        lobbyTitleFormEl.hidden = true;
+        adminLoginFormEl.hidden = false;
+        lobbyNoticeEl.textContent = "";
+        document.getElementById("adminEmailInput").focus();
+        return;
+    }
+
     const lobbyMatch = Object.entries(LOBBY_CONFIGS).find(([, lobby]) =>
         normalizeLobbyTitle(lobby.name) === enteredTitle
     );
@@ -11381,7 +11646,7 @@ function beginLobbyJoin() {
     playerNameInputEl.focus();
 }
 
-function joinSelectedLobby() {
+async function joinSelectedLobby() {
     const playerName = playerNameInputEl.value.trim();
     if (!playerName) {
         lobbyNoticeEl.textContent = "Skriv ditt namn innan du ansluter.";
@@ -11419,20 +11684,196 @@ function joinSelectedLobby() {
     playerState.team = activeLobbyId;
     TEST_TEAM.team = activeLobbyId;
     TEST_TEAM.players[seatId] = { name: playerName };
+    const reconnectCode = generateReconnectCode();
+    const reconnectId = crypto.randomUUID();
     currentLobbyRoom.players[String(seatId)] = {
         name: playerName,
         sessionId: lobbySessionId,
+        reconnectId,
         ready: false,
         joinedAt: Date.now()
     };
     sessionStorage.setItem("wh_activeLobbyId", activeLobbyId);
-    saveLobbyRoom();
+    if (!await saveLobbyRoom()) {
+        lobbyNoticeEl.textContent = "Kunde inte spara spelaren i Firebase. Kontrollera anslutningen och försök igen.";
+        return;
+    }
+    let reconnectCodeWarning = "";
+    try {
+        await saveReconnectCode(reconnectCode, {
+            lobbyId: activeLobbyId,
+            seat: seatId,
+            playerName,
+            reconnectId,
+            createdAt: Date.now()
+        });
+        setVisibleReconnectCode(reconnectCode);
+    } catch (error) {
+        console.error("Återanslutningskoden kunde inte sparas.", error);
+        reconnectCodeWarning = "Du är ansluten, men återanslutningskoden kunde inte sparas. Kontakta administratören.";
+    }
     document.getElementById("lobbyWaitingHeading").textContent = LOBBY_CONFIGS[activeLobbyId].name;
     document.getElementById("lobbyBookNameStamp").textContent = playerName;
     document.getElementById("lobbyBookSummary").hidden = false;
-    lobbyNoticeEl.textContent = "";
+    lobbyNoticeEl.textContent = reconnectCodeWarning;
     showLobbyView("waiting");
     renderLobbyRoster();
+}
+
+async function reconnectWithCode(event) {
+    event.preventDefault();
+    if (!firebaseConnected || !firebaseInitialized) {
+        lobbyNoticeEl.textContent = "Firebase ansluter fortfarande. Vänta och försök igen.";
+        return;
+    }
+
+    const reconnectCode = normalizeReconnectCode(reconnectCodeInputEl.value);
+    if (reconnectCode.length !== 12) {
+        lobbyNoticeEl.textContent = "Återanslutningskoden är ogiltig.";
+        return;
+    }
+
+    try {
+        const snapshot = await window.firebase.database()
+            .ref(`reconnectCodes/${reconnectCode}`)
+            .once("value");
+        const record = snapshot.val();
+        if (!record || !LOBBY_CONFIGS[record.lobbyId] ||
+            !Number.isInteger(Number(record.seat)) ||
+            Number(record.seat) < 1 || Number(record.seat) > LOBBY_MAX_PLAYER_COUNT ||
+            typeof record.reconnectId !== "string") {
+            throw new Error("Koden känns inte igen.");
+        }
+
+        const lobbyId = record.lobbyId;
+        const seatId = Number(record.seat);
+        const room = readLobbyRoom(lobbyId);
+        const player = room.players[String(seatId)];
+        if (!player || player.reconnectId !== record.reconnectId) {
+            throw new Error("Koden är inte längre kopplad till en aktiv spelare.");
+        }
+
+        lobbySessionId = crypto.randomUUID();
+        sessionStorage.setItem("wh_lobbySessionId", lobbySessionId);
+        player.sessionId = lobbySessionId;
+        activeLobbyId = lobbyId;
+        selectedLobbyId = lobbyId;
+        lobbySeatId = seatId;
+        playerState.id = seatId;
+        playerState.name = player.name || record.playerName || `Spelare ${seatId}`;
+        playerState.team = lobbyId;
+        TEST_TEAM.team = lobbyId;
+        TEST_TEAM.players[seatId] = { name: playerState.name };
+        currentLobbyRoom = room;
+        setLobbyStorageKeys(lobbyId);
+        sessionStorage.setItem("wh_activeLobbyId", lobbyId);
+
+        if (!await saveLobbyRoom({ startIntro: false })) {
+            throw new Error("Din plats kunde inte återställas i Firebase. Försök igen.");
+        }
+        setVisibleReconnectCode(reconnectCode);
+        reconnectCodeInputEl.value = "";
+        lobbyNoticeEl.textContent = "";
+        document.getElementById("lobbyWaitingHeading").textContent = LOBBY_CONFIGS[lobbyId].name;
+        document.getElementById("lobbyBookTitleStamp").textContent = LOBBY_CONFIGS[lobbyId].name;
+        document.getElementById("lobbyBookNameStamp").textContent = playerState.name;
+        document.getElementById("lobbyBookSummary").hidden = false;
+
+        if (room.startedAt) {
+            enterGameFromLobby();
+        } else {
+            showLobbyView("waiting");
+            renderLobbyRoster();
+        }
+    } catch (error) {
+        console.error("Återanslutning med kod misslyckades.", error);
+        lobbyNoticeEl.textContent = error.message === "Koden känns inte igen." ||
+            error.message === "Koden är inte längre kopplad till en aktiv spelare."
+            ? error.message
+            : "Kunde inte använda koden. Kontrollera att den är rätt och att Firebase är tillgängligt.";
+    }
+}
+
+async function refreshAdminReconnectCodes() {
+    adminCodeListEl.replaceChildren();
+    const snapshot = await window.firebase.database().ref("reconnectCodes").once("value");
+    const records = snapshot.val() || {};
+    const activeCodes = Object.entries(records).filter(([code, record]) => {
+        if (!record || !LOBBY_CONFIGS[record.lobbyId]) return false;
+        const player = readLobbyRoom(record.lobbyId).players[String(record.seat)];
+        return player && player.reconnectId === record.reconnectId;
+    }).sort(([, left], [, right]) =>
+        left.lobbyId.localeCompare(right.lobbyId) || Number(left.seat) - Number(right.seat)
+    );
+
+    if (!activeCodes.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "Inga aktiva återanslutningskoder.";
+        adminCodeListEl.appendChild(empty);
+        return;
+    }
+
+    activeCodes.forEach(([code, record]) => {
+        const row = document.createElement("div");
+        row.className = "admin-code-row";
+        const description = document.createElement("span");
+        description.textContent = `${record.playerName || "Spelare"} — ${LOBBY_CONFIGS[record.lobbyId].name}, plats ${record.seat}`;
+        const value = document.createElement("code");
+        value.textContent = formatReconnectCode(code);
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.className = "lobby-secondary";
+        copyButton.textContent = "Kopiera";
+        copyButton.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(formatReconnectCode(code));
+                lobbyNoticeEl.textContent = "Koden kopierades.";
+            } catch (error) {
+                console.error("Koden kunde inte kopieras.", error);
+                lobbyNoticeEl.textContent = "Kopiering misslyckades. Markera och kopiera koden manuellt.";
+            }
+        });
+        row.append(description, value, copyButton);
+        adminCodeListEl.appendChild(row);
+    });
+}
+
+async function loginAdmin(event) {
+    event.preventDefault();
+    try {
+        const auth = window.firebase.auth();
+        await auth.setPersistence(window.firebase.auth.Auth.Persistence.SESSION);
+        await auth.signInWithEmailAndPassword(
+            document.getElementById("adminEmailInput").value.trim(),
+            document.getElementById("adminPasswordInput").value
+        );
+        await refreshAdminReconnectCodes();
+        lobbyNoticeEl.textContent = "";
+        lobbyTitleFormEl.hidden = true;
+        reconnectCodeFormEl.hidden = true;
+        adminLoginFormEl.hidden = true;
+        adminCodeResultsEl.hidden = false;
+    } catch (error) {
+        console.error("Administratörsinloggning eller kodhämtning misslyckades.", error);
+        lobbyNoticeEl.textContent = error.code === "PERMISSION_DENIED"
+            ? "Admininloggningen lyckades inte få åtkomst. Kontrollera admin-e-posten i Firebase-reglerna."
+            : "Kunde inte logga in eller hämta koder. Kontrollera admin-kontot och Firebase-reglerna.";
+    }
+}
+
+async function logoutAdmin() {
+    try {
+        await window.firebase.auth().signOut();
+        await window.firebase.auth().signInAnonymously();
+        adminCodeResultsEl.hidden = true;
+        adminLoginFormEl.hidden = true;
+        lobbyTitleFormEl.hidden = false;
+        document.getElementById("adminPasswordInput").value = "";
+        lobbyNoticeEl.textContent = "";
+    } catch (error) {
+        console.error("Utloggning från administratörskontot misslyckades.", error);
+        lobbyNoticeEl.textContent = "Kunde inte återgå till anonym inloggning. Ladda om sidan.";
+    }
 }
 
 function toggleLobbyReady() {
@@ -11612,6 +12053,7 @@ function enterGameFromLobby() {
     lobbyIntroVideoEl.pause();
     document.body.classList.remove("in-lobby");
     stopStartMenuAudio();
+    setVisibleReconnectCode(activeReconnectCode);
 
     const joinedPlayer = currentLobbyRoom?.players?.[String(lobbySeatId)];
     const playerLimit = currentLobbyRoom?.playerLimit || LOBBY_DEFAULT_PLAYER_COUNT;
@@ -11683,6 +12125,7 @@ function restoreLobbySession() {
         TEST_TEAM.team = lobbyId;
         currentLobbyRoom = room;
         sessionStorage.setItem("wh_activeLobbyId", lobbyId);
+        ensurePlayerReconnectCode(lobbyId, Number(ownSeat), joinedPlayer);
 
         if (room.startedAt) {
             enterGameFromLobby();
@@ -11744,6 +12187,7 @@ function leaveLobby() {
     lobbyPasswordInputEl.value = "";
     playerNameInputEl.value = "";
     lobbyNoticeEl.textContent = "";
+    setVisibleReconnectCode(null);
     showLobbyView("title");
     playStartMenuAudio();
 }
@@ -11806,8 +12250,39 @@ document.getElementById("lobbyNameForm").addEventListener("submit", async event 
         lobbyNoticeEl.textContent = "Firebase ansluter fortfarande. Vänta tills anslutningen är klar och försök igen.";
         return;
     }
-    joinSelectedLobby();
+    await joinSelectedLobby();
 });
+document.getElementById("reconnectCodeForm").addEventListener("submit", reconnectWithCode);
+document.getElementById("adminLoginForm").addEventListener("submit", loginAdmin);
+document.getElementById("showReconnectFormButton").addEventListener("click", () => {
+    lobbyTitleFormEl.hidden = true;
+    reconnectCodeFormEl.hidden = false;
+    lobbyNoticeEl.textContent = "";
+    reconnectCodeInputEl.focus();
+});
+document.getElementById("backFromReconnectButton").addEventListener("click", () => {
+    reconnectCodeFormEl.hidden = true;
+    lobbyTitleFormEl.hidden = false;
+    lobbyNoticeEl.textContent = "";
+    lobbyPasswordInputEl.focus();
+});
+document.getElementById("backFromAdminButton").addEventListener("click", () => {
+    adminLoginFormEl.hidden = true;
+    lobbyTitleFormEl.hidden = false;
+    lobbyNoticeEl.textContent = "";
+});
+document.getElementById("adminRefreshCodesButton").addEventListener("click", async () => {
+    try {
+        await refreshAdminReconnectCodes();
+        lobbyNoticeEl.textContent = "";
+    } catch (error) {
+        console.error("Återanslutningskoder kunde inte uppdateras.", error);
+        lobbyNoticeEl.textContent = "Kunde inte hämta koder. Kontrollera admin-inloggningen och Firebase-reglerna.";
+    }
+});
+document.getElementById("adminSignOutButton").addEventListener("click", logoutAdmin);
+reconnectCodeValueEl.addEventListener("click", copyReconnectCode);
+inGameReconnectCodeEl.addEventListener("click", copyReconnectCode);
 document.getElementById("backToLobbyChoiceButton").addEventListener("click", () => {
     activeLobbyId = null;
     currentLobbyRoom = null;
