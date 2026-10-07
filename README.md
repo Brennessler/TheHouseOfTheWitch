@@ -11,3 +11,5 @@ Spelet använder Firebase Authentication med anonym inloggning och Realtime Data
 Kopiera reglerna från `firebase-database.rules.json` till Realtime Database → Rules i Firebase Console och publicera dem. Reglerna kräver autentiserad åtkomst men innebär att alla anonyma spelare kan läsa och skriva spellobbynas data. Spara inte känslig information där.
 
 Speldata lagras per lobby under `rooms/{lobbyId}` med grenarna `lobby`, `world`, `players`, `events` och `spiritVision`. Firebase-konfigurationen ligger i `game.html`; webb-API-nyckeln är klientkonfiguration och ska skyddas med databasreglerna.
+
+Delad lobby- och speldata läses och skrivs bara via Firebase. Vid frånkoppling blockeras spelet tills Firebase har återanslutit och laddat in aktuella lobbysnapshots; den delade datan sparas inte som reserv i `localStorage`.

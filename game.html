@@ -4,6 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Häxans hus - Navigation</title>
+<link rel="icon" type="image/png" href="assets/ui/WH_UI_pointer_cursor.png">
 
 <style>
 
@@ -149,6 +150,28 @@ html, body, * {
 
 body.ending-sequence-active {
     overflow: hidden;
+}
+
+#firebaseConnectionOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 6000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    color: #eee4d2;
+    text-align: center;
+    background: rgba(0, 0, 0, .94);
+}
+
+#firebaseConnectionOverlay[hidden] {
+    display: none !important;
+}
+
+#firebaseConnectionOverlay p {
+    max-width: 36em;
+    font-size: clamp(18px, 2vw, 28px);
+    line-height: 1.5;
 }
 
 .lobby-shell {
@@ -2646,6 +2669,10 @@ body.raven-wordle #ravenPuzzleOverlay {
     <p id="homeEndingStatus" role="status" hidden></p>
 </div>
 
+<div id="firebaseConnectionOverlay" role="alert" aria-live="assertive" hidden>
+    <p id="firebaseConnectionMessage"></p>
+</div>
+
 <audio id="startMenuAudio" src="assets/audio/start.mp3" loop preload="auto"></audio>
 <audio id="crowStartAudio" src="assets/audio/Crow_start.mp3" loop preload="auto"></audio>
 <audio id="simmerAudio" src="assets/audio/Simmering.mp3" loop preload="auto"></audio>
@@ -4250,10 +4277,33 @@ const FIREBASE_EVENT_KEYS = {
     spiritVoteEvent: "wh_spiritVoteEvent"
 };
 const firebaseRoomRefs = new Map();
+const firebaseSharedStateCache = new Map();
+const firebaseRoomSnapshots = new Set();
+const firebaseRoomErrors = new Set();
+const firebaseConnectionOverlayEl = document.getElementById("firebaseConnectionOverlay");
+const firebaseConnectionMessageEl = document.getElementById("firebaseConnectionMessage");
+let firebaseConnected = false;
+let firebaseInitialized = false;
+let firebaseFailureMessage = null;
 const firebaseReadyPromise = initializeFirebaseSharedStore();
+
+function updateFirebaseConnectionOverlay() {
+    const message = firebaseFailureMessage ||
+        (!firebaseConnected
+            ? "Anslutningen till spellobbyn bröts. Spelet pausas tills Firebase är tillgängligt igen."
+            : firebaseRoomErrors.size
+                ? "Kunde inte läsa spellobbyn från Firebase. Spelet pausas tills anslutningen fungerar igen."
+                : !firebaseInitialized
+                    ? "Ansluter till spellobbyn..."
+                    : "");
+    firebaseConnectionMessageEl.textContent = message;
+    firebaseConnectionOverlayEl.hidden = !message;
+}
 
 function showFirebaseError(message, error) {
     console.error(message, error);
+    firebaseFailureMessage = message;
+    updateFirebaseConnectionOverlay();
     const notice = document.getElementById("lobbyNotice");
     if (notice) notice.textContent = message;
 }
@@ -4397,7 +4447,15 @@ function mergeFirebaseLobby(current, incoming, previous) {
 
 function writeFirebaseValue(key, value, previousValue) {
     const path = firebasePathForStorageKey(key);
-    if (!path || !window.firebase?.apps?.length) return;
+    if (!path) return;
+    if (!firebaseConnected || !firebaseInitialized || firebaseRoomErrors.size) {
+        showFirebaseError("Ingen data sparades eftersom Firebase inte är anslutet. Vänta på återanslutning och försök igen.");
+        return;
+    }
+    if (!window.firebase?.apps?.length) {
+        showFirebaseError("Firebase SDK saknas. Ingen delad data sparades.");
+        return;
+    }
 
     let parsedValue = null;
     let previousData = null;
@@ -4437,24 +4495,26 @@ function writeFirebaseValue(key, value, previousValue) {
 }
 
 function updateLocalSharedValue(key, value) {
-    const oldValue = localStorage.getItem(key);
+    const oldValue = firebaseSharedStateCache.get(key) ?? null;
     const newValue = value === null || value === undefined
         ? null
         : typeof value === "string" ? value : JSON.stringify(value);
     if (oldValue === newValue) return;
 
     if (newValue === null) {
-        localStorage.removeItem(key);
+        firebaseSharedStateCache.delete(key);
     } else {
-        localStorage.setItem(key, newValue);
+        firebaseSharedStateCache.set(key, newValue);
     }
-    window.dispatchEvent(new StorageEvent("storage", {
-        key,
-        oldValue,
-        newValue,
-        storageArea: localStorage,
-        url: window.location.href
-    }));
+    const event = new Event("storage");
+    Object.defineProperties(event, {
+        key: { value: key },
+        oldValue: { value: oldValue },
+        newValue: { value: newValue },
+        storageArea: { value: null },
+        url: { value: window.location.href }
+    });
+    window.dispatchEvent(event);
 }
 
 function syncFirebaseRoomToLocal(roomId, roomData) {
@@ -4480,11 +4540,13 @@ function syncFirebaseRoomToLocal(roomId, roomData) {
     });
 
     synchronizedValues.forEach((value, key) => updateLocalSharedValue(key, value));
+    firebaseRoomErrors.delete(roomId);
+    firebaseFailureMessage = null;
+    updateFirebaseConnectionOverlay();
 }
 
 async function initializeFirebaseSharedStore() {
-    const lobbyNotice = document.getElementById("lobbyNotice");
-    if (lobbyNotice) lobbyNotice.textContent = "Ansluter till Firebase...";
+    updateFirebaseConnectionOverlay();
 
     try {
         if (!window.firebase?.initializeApp || !window.firebase?.database || !window.firebase?.auth) {
@@ -4498,19 +4560,41 @@ async function initializeFirebaseSharedStore() {
         if (!auth.currentUser) await auth.signInAnonymously();
 
         const database = window.firebase.database(app);
+        await new Promise((resolve, reject) => {
+            const connectionRef = database.ref(".info/connected");
+            connectionRef.on("value", snapshot => {
+                firebaseConnected = snapshot.val() === true;
+                if (!firebaseConnected) {
+                    firebaseInitialized = false;
+                    firebaseRoomSnapshots.clear();
+                }
+                updateFirebaseConnectionOverlay();
+                if (firebaseConnected) resolve();
+            }, reject);
+        });
+
         const roomIds = Object.keys(LOBBY_CONFIGS);
         await Promise.all(roomIds.map(roomId => new Promise((resolve, reject) => {
             const roomRef = database.ref(`rooms/${roomId}`);
             let initialValueReceived = false;
             const handleValue = snapshot => {
+                if (!firebaseConnected) return;
                 syncFirebaseRoomToLocal(roomId, snapshot.val());
+                firebaseRoomSnapshots.add(roomId);
+                if (firebaseRoomSnapshots.size === roomIds.length && !firebaseRoomErrors.size) {
+                    firebaseInitialized = true;
+                    firebaseFailureMessage = null;
+                    updateFirebaseConnectionOverlay();
+                }
                 if (!initialValueReceived) {
                     initialValueReceived = true;
                     resolve();
                 }
             };
             const handleError = error => {
-                showFirebaseError("Kunde inte ansluta till spellobbyn i Firebase.", error);
+                firebaseRoomErrors.add(roomId);
+                firebaseInitialized = false;
+                showFirebaseError("Kunde inte läsa spellobbyn från Firebase. Kontrollera databasreglerna.", error);
                 if (!initialValueReceived) reject(error);
             };
 
@@ -4518,13 +4602,15 @@ async function initializeFirebaseSharedStore() {
             firebaseRoomRefs.set(roomId, roomRef);
         })));
 
-        if (lobbyNotice?.textContent === "Ansluter till Firebase...") {
-            lobbyNotice.textContent = "";
-        }
-        return true;
+        firebaseInitialized = firebaseConnected &&
+            firebaseRoomSnapshots.size === roomIds.length &&
+            firebaseRoomErrors.size === 0;
+        if (firebaseInitialized) firebaseFailureMessage = null;
+        updateFirebaseConnectionOverlay();
+        return firebaseInitialized;
     } catch (error) {
         showFirebaseError(
-            "Spelet kunde inte ansluta till Firebase. Kontrollera internetanslutningen och Firebase-reglerna, och ladda om sidan.",
+            "Spelet kunde inte ansluta till Firebase. Ingen lobbydata sparas lokalt. Kontrollera internetanslutningen och Firebase-reglerna.",
             error
         );
         return false;
@@ -4534,15 +4620,16 @@ async function initializeFirebaseSharedStore() {
 function createFirebaseSharedStateStore() {
     return {
         read(key) {
-            return localStorage.getItem(key);
+            if (!firebaseConnected || !firebaseInitialized || firebaseRoomErrors.size) {
+                throw new Error("Firebase is disconnected; shared state cannot be read from localStorage.");
+            }
+            return firebaseSharedStateCache.get(key) ?? null;
         },
         write(key, value) {
-            const previousValue = localStorage.getItem(key);
-            localStorage.setItem(key, value);
+            const previousValue = firebaseSharedStateCache.get(key) ?? null;
             writeFirebaseValue(key, value, previousValue);
         },
         remove(key) {
-            localStorage.removeItem(key);
             writeFirebaseValue(key, null);
         },
         subscribe(listener) {
@@ -11165,26 +11252,30 @@ const lobbyIntroVideoRetryButtonEl = document.getElementById("lobbyIntroVideoRet
 
 function readLobbyRoom(lobbyId = activeLobbyId) {
     if (!lobbyId) return { players: {}, playerLimit: LOBBY_DEFAULT_PLAYER_COUNT, startedAt: null, cinematicStartedAt: null };
+    let saved;
     try {
-        const saved = JSON.parse(sharedStateStore.read(`wh_lobbyState_${lobbyId}`) || "null");
-        const savedPlayers = saved?.players && typeof saved.players === "object" && !Array.isArray(saved.players)
-            ? saved.players
-            : {};
-        return {
-            players: Object.fromEntries(
-                Object.entries(savedPlayers).filter(([, player]) =>
-                    player && typeof player === "object" && !Array.isArray(player)
-                )
-            ),
-            playerLimit: saved?.playerLimit === LOBBY_MAX_PLAYER_COUNT
-                ? LOBBY_MAX_PLAYER_COUNT
-                : LOBBY_DEFAULT_PLAYER_COUNT,
-            startedAt: Number(saved?.startedAt) || null,
-            cinematicStartedAt: Number(saved?.cinematicStartedAt) || null
-        };
-    } catch {
-        return { players: {}, playerLimit: LOBBY_DEFAULT_PLAYER_COUNT, startedAt: null, cinematicStartedAt: null };
+        saved = JSON.parse(sharedStateStore.read(`wh_lobbyState_${lobbyId}`) || "null");
+    } catch (error) {
+        showFirebaseError("Kunde inte läsa lobbydata från Firebase.", error);
+        throw error;
     }
+    const rawPlayers = saved?.players;
+    const playerEntries = Array.isArray(rawPlayers)
+        ? rawPlayers.map((player, index) => [String(index + (rawPlayers[0] ? 1 : 0)), player])
+        : rawPlayers && typeof rawPlayers === "object"
+            ? Object.entries(rawPlayers)
+            : [];
+    const savedPlayers = Object.fromEntries(playerEntries.filter(([, player]) =>
+        player && typeof player === "object" && !Array.isArray(player)
+    ));
+    return {
+        players: savedPlayers,
+        playerLimit: saved?.playerLimit === LOBBY_MAX_PLAYER_COUNT
+            ? LOBBY_MAX_PLAYER_COUNT
+            : LOBBY_DEFAULT_PLAYER_COUNT,
+        startedAt: Number(saved?.startedAt) || null,
+        cinematicStartedAt: Number(saved?.cinematicStartedAt) || null
+    };
 }
 
 function saveLobbyRoom() {
@@ -11703,16 +11794,16 @@ function resetLobbyClearConfirmation() {
 
 document.getElementById("lobbyTitleForm").addEventListener("submit", async event => {
     event.preventDefault();
-    if (!await firebaseReadyPromise) {
-        lobbyNoticeEl.textContent = "Firebase är inte tillgängligt. Kontrollera anslutningen och ladda om sidan.";
+    if (!firebaseConnected || !firebaseInitialized || firebaseRoomErrors.size) {
+        lobbyNoticeEl.textContent = "Firebase ansluter fortfarande. Vänta tills anslutningen är klar och försök igen.";
         return;
     }
     beginLobbyJoin();
 });
 document.getElementById("lobbyNameForm").addEventListener("submit", async event => {
     event.preventDefault();
-    if (!await firebaseReadyPromise) {
-        lobbyNoticeEl.textContent = "Firebase är inte tillgängligt. Kontrollera anslutningen och ladda om sidan.";
+    if (!firebaseConnected || !firebaseInitialized || firebaseRoomErrors.size) {
+        lobbyNoticeEl.textContent = "Firebase ansluter fortfarande. Vänta tills anslutningen är klar och försök igen.";
         return;
     }
     joinSelectedLobby();
