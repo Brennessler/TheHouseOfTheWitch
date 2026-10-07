@@ -4382,6 +4382,8 @@ const worldState = {
     }
 };
 
+const DEFAULT_LOUNGE_STATE = JSON.parse(JSON.stringify(worldState.lounge));
+
 // Alias:er så befintlig kod kan fortsätta använda samma namn, men mutationerna sker på worldState
 const inventory = playerState.inventory;
 const pickedUpItems = worldState.pickedUpItems;
@@ -5672,7 +5674,17 @@ function loadWorldState() {
     Object.assign(worldState.raven, saved.raven || {});
     Object.assign(worldState.hall, saved.hall || {});
     worldState.hall.homeVotes ||= {};
-    Object.assign(worldState.lounge, saved.lounge || {});
+    const savedLounge = saved.lounge && typeof saved.lounge === "object"
+        ? saved.lounge
+        : {};
+    Object.keys(worldState.lounge).forEach(field => {
+        delete worldState.lounge[field];
+    });
+    Object.assign(
+        worldState.lounge,
+        JSON.parse(JSON.stringify(DEFAULT_LOUNGE_STATE)),
+        savedLounge
+    );
     worldState.lounge.sharedFieldRevisions ||= {};
     worldState.lounge.roles = {
         listener: null,
