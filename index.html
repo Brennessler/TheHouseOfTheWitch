@@ -5664,6 +5664,7 @@ async function takeRecordFromPlayer(record, destination = "inventory", surfaceId
     }
 
     recordTransactionInProgress = true;
+    let transactionCommitted = false;
     try {
         const result = await window.firebase.database()
             .ref(`rooms/${activeLobbyId}`)
@@ -5748,6 +5749,7 @@ async function takeRecordFromPlayer(record, destination = "inventory", surfaceId
             showToast("Skivan har redan flyttats av en annan spelare.");
             return false;
         }
+        transactionCommitted = true;
         const committedRoom = result.snapshot.val();
         applyCommittedRecordLounge(committedRoom.world.lounge);
         markSharedLoungeStateChanged();
@@ -5761,7 +5763,11 @@ async function takeRecordFromPlayer(record, destination = "inventory", surfaceId
         syncLoungeAudio();
         return true;
     } catch (error) {
-        showFirebaseError("Skivan kunde inte tas ut ur skivspelaren.", error);
+        const detail = error?.code || error?.message || String(error);
+        const message = transactionCommitted
+            ? "Skivan togs ut, men vyn kunde inte uppdateras. Ladda om spelet."
+            : `Skivan kunde inte tas ut ur skivspelaren. Firebase-fel: ${detail}`;
+        showFirebaseError(message, error);
         return false;
     } finally {
         recordTransactionInProgress = false;
@@ -5988,10 +5994,10 @@ function loadPlayerState() {
     if (!saved) savePlayerState();
 }
 
-function normalizePlayerInventoryCapacity() {
+function normalizePlayerInventoryCapacity({ persist = true } = {}) {
     const removedMessengerBag = inventory.delete("messengerBag");
     const removedHeadphones = inventory.delete("headphones");
-    if (removedMessengerBag || removedHeadphones) savePlayerState();
+    if (persist && (removedMessengerBag || removedHeadphones)) savePlayerState();
     const looseItems = [...inventory].filter(item => !KEY_ITEMS.has(item) && !PORTRAIT_ITEMS.has(item));
     const overflowItems = looseItems.slice(inventoryCapacity());
     if (!overflowItems.length) return;
@@ -6005,8 +6011,10 @@ function normalizePlayerInventoryCapacity() {
         inventory.delete(item);
         ensurePlacedItems("kitchenTable").push(item);
     });
-    savePlayerState();
-    saveWorldState();
+    if (persist) {
+        savePlayerState();
+        saveWorldState();
+    }
 }
 
 const RAVEN_UNFED_IMAGE = "assets/environments/kitchen/WH_ENV_KITCHEN_Raven_unfed_MASTER_v02.webp";
@@ -7302,8 +7310,8 @@ inventorySlotsEl.addEventListener("dragover", event => {
 
 inventorySlotsEl.addEventListener("drop", handleDumpspotInventoryDrop);
 
-function updateInventory() {
-    normalizePlayerInventoryCapacity();
+function updateInventory({ persist = true } = {}) {
+    normalizePlayerInventoryCapacity({ persist });
     inventorySlotsEl.replaceChildren();
 
     const inventoryFrame = playerState.role === "builder"
@@ -7394,7 +7402,7 @@ function updateInventory() {
                 showConfirm("Trolldrycken", "Ta en hutt?", () => {
                     playPotionDrunkSound();
                     playerState.potionDrunk = true;
-                    savePlayerState();
+                    if (persist) savePlayerState();
                     inventory.delete("purplePotion");
                     updateInventory();
                     refreshScene();
@@ -14145,13 +14153,13 @@ sharedStateStore.subscribe(event => {
     if (event.key === `${PLAYER_STATE_KEY_PREFIX}${playerState.id}` && event.newValue) {
         loadPlayerState();
         currentScene = scenes[playerState.scene] ? playerState.scene : startScene;
-        updateInventory();
+        updateInventory({ persist: false });
         refreshScene();
     }
 
     if (event.key === WORLD_STATE_KEY) {
         loadWorldState();
-        updateInventory();
+        updateInventory({ persist: false });
         syncMessengerRelay();
         if (isSpiritCoopMember() && loungeState.spiritSharedFrameImage) {
             sceneEl.style.backgroundImage = `url("${loungeState.spiritSharedFrameImage}")`;
