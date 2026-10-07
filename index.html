@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Häxans hus</title>
-<link rel="icon" type="image/png" href="assets/ui/WH_UI_pointer_cursor.png">
+<link rel="icon" type="image/webp" href="assets/ui/WH_UI_pointer_cursor.webp">
 
 <style>
 
@@ -19,31 +19,31 @@ html, body {
 
 /* Webbläsare ignorerar muspekare större än 128 px, därför används en nedskalad kopia */
 html, body, * {
-    cursor: url("assets/ui/WH_UI_pointer_cursor.png") 1 0, auto !important;
+    cursor: url("assets/ui/WH_UI_pointer_cursor.webp") 1 0, auto !important;
 }
 
-[draggable="true"], .dumpspot-item, #ouijaPlanchette { cursor: url("assets/ui/cursors/WH_UI_Hold.png") 17 20, grab !important; }
-.inventory-slot-item { cursor: url("assets/ui/cursors/WH_UI_pick_up.png") 15 20, pointer !important; }
-.inventory-slot-item:active, body.item-dragging, body.item-dragging * { cursor: url("assets/ui/cursors/WH_UI_Hold.png") 17 20, grabbing !important; }
-[data-cursor="look"] { cursor: url("assets/ui/cursors/WH_UI_look.png") 20 20, pointer !important; }
-[data-cursor="up"] { cursor: url("assets/ui/cursors/WH_UI_up.png") 20 2, pointer !important; }
-[data-cursor="headphones"] { cursor: url("assets/ui/cursors/WH_AST_LOUNGE_Headphones_v01.png") 30 32, pointer !important; }
-[data-cursor="remote"] { cursor: url("assets/ui/cursors/WH_AST_LOUNGE_Remote_v01.png") 20 32, pointer !important; }
-[data-cursor="door"] { cursor: url("assets/ui/cursors/WH_UI_door.png") 15 20, pointer !important; }
-[data-cursor="pick_up"] { cursor: url("assets/ui/cursors/WH_UI_pick_up.png") 15 20, pointer !important; }
-[data-cursor="back"] { cursor: url("assets/ui/cursors/WH_UI_back.png") 19 20, pointer !important; }
-[data-cursor="over"] { cursor: url("assets/ui/cursors/WH_UI_Over.png") 20 17, pointer !important; }
-[data-cursor="under"] { cursor: url("assets/ui/cursors/WH_UI_under.png") 20 17, pointer !important; }
-[data-cursor="forward"] { cursor: url("assets/ui/cursors/WH_UI_forward.png") 20 20, pointer !important; }
-[data-cursor="down"] { cursor: url("assets/ui/cursors/WH_UI_down.png") 20 30, pointer !important; }
-[data-cursor="right"] { cursor: url("assets/ui/cursors/WH_UI_right.png") 20 14, pointer !important; }
-[data-cursor="left"] { cursor: url("assets/ui/cursors/WH_UI_left.png") 20 14, pointer !important; }
-[data-cursor="around_right"] { cursor: url("assets/ui/cursors/WH_UI_Around_right.png") 17 20, pointer !important; }
+[draggable="true"], .dumpspot-item, #ouijaPlanchette { cursor: url("assets/ui/cursors/WH_UI_Hold.webp") 17 20, grab !important; }
+.inventory-slot-item { cursor: url("assets/ui/cursors/WH_UI_pick_up.webp") 15 20, pointer !important; }
+.inventory-slot-item:active, body.item-dragging, body.item-dragging * { cursor: url("assets/ui/cursors/WH_UI_Hold.webp") 17 20, grabbing !important; }
+[data-cursor="look"] { cursor: url("assets/ui/cursors/WH_UI_look.webp") 20 20, pointer !important; }
+[data-cursor="up"] { cursor: url("assets/ui/cursors/WH_UI_up.webp") 20 2, pointer !important; }
+[data-cursor="headphones"] { cursor: url("assets/ui/cursors/WH_AST_LOUNGE_Headphones_v01.webp") 30 32, pointer !important; }
+[data-cursor="remote"] { cursor: url("assets/ui/cursors/WH_AST_LOUNGE_Remote_v01.webp") 20 32, pointer !important; }
+[data-cursor="door"] { cursor: url("assets/ui/cursors/WH_UI_door.webp") 15 20, pointer !important; }
+[data-cursor="pick_up"] { cursor: url("assets/ui/cursors/WH_UI_pick_up.webp") 15 20, pointer !important; }
+[data-cursor="back"] { cursor: url("assets/ui/cursors/WH_UI_back.webp") 19 20, pointer !important; }
+[data-cursor="over"] { cursor: url("assets/ui/cursors/WH_UI_Over.webp") 20 17, pointer !important; }
+[data-cursor="under"] { cursor: url("assets/ui/cursors/WH_UI_under.webp") 20 17, pointer !important; }
+[data-cursor="forward"] { cursor: url("assets/ui/cursors/WH_UI_forward.webp") 20 20, pointer !important; }
+[data-cursor="down"] { cursor: url("assets/ui/cursors/WH_UI_down.webp") 20 30, pointer !important; }
+[data-cursor="right"] { cursor: url("assets/ui/cursors/WH_UI_right.webp") 20 14, pointer !important; }
+[data-cursor="left"] { cursor: url("assets/ui/cursors/WH_UI_left.webp") 20 14, pointer !important; }
+[data-cursor="around_right"] { cursor: url("assets/ui/cursors/WH_UI_Around_right.webp") 17 20, pointer !important; }
 #scene .hotspot[data-cursor="down"],
-#scene .hotspot[data-cursor="down"] * { cursor: url("assets/ui/cursors/WH_UI_down.png") 20 30, pointer !important; }
+#scene .hotspot[data-cursor="down"] * { cursor: url("assets/ui/cursors/WH_UI_down.webp") 20 30, pointer !important; }
 #scene .hotspot[data-cursor="pick_up"],
 #scene .hotspot[data-cursor="pick_up"] *,
-.spirit-equipment-rope { cursor: url("assets/ui/cursors/WH_UI_pick_up.png") 15 20, pointer !important; }
+.spirit-equipment-rope { cursor: url("assets/ui/cursors/WH_UI_pick_up.webp") 15 20, pointer !important; }
 
 #volumeControls {
     display: flex;
@@ -95,7 +95,7 @@ html, body, * {
     width: min(100vw, 177.78vh);
     height: min(100vh, 56.25vw);
     aspect-ratio: 16 / 9;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 #lobbyIntroVideoMessage {
@@ -181,7 +181,7 @@ body.ending-sequence-active {
     aspect-ratio: 16 / 9;
     overflow: hidden;
     container-type: inline-size;
-    background: url("assets/ui/start.png") center / cover no-repeat;
+    background: url("assets/ui/start.webp") center / cover no-repeat;
 }
 
 .lobby-book-view {
@@ -197,7 +197,7 @@ body.ending-sequence-active {
     display: none !important;
 }
 
-/* Titel-, namn- och väntrutan är mindre overlayrutor ovanpå start.png, inte helskärm */
+/* Titel-, namn- och väntrutan är mindre overlayrutor ovanpå start.webp, inte helskärm */
 #lobbyPasswordView,
 #lobbyNameView,
 #lobbyWaitingView {
@@ -210,19 +210,19 @@ body.ending-sequence-active {
 
 #lobbyPasswordView {
     width: min(50%, 620px);
-    background: url("assets/ui/WH_UI_Frame_Medium.png") center / contain no-repeat;
+    background: url("assets/ui/WH_UI_Frame_Medium.webp") center / contain no-repeat;
 }
 
 #lobbyNameView {
     width: min(38%, 480px);
-    background: url("assets/ui/WH_UI_Frame_Small.png") center / contain no-repeat;
+    background: url("assets/ui/WH_UI_Frame_Small.webp") center / contain no-repeat;
 }
 
 #lobbyWaitingView {
     width: min(72%, 880px);
     flex-direction: column;
     padding: 6% 8%;
-    background: url("assets/ui/WH_UI_Frame_Large.png") center / contain no-repeat;
+    background: url("assets/ui/WH_UI_Frame_Large.webp") center / contain no-repeat;
 }
 
 #lobbyIntroView {
@@ -757,7 +757,7 @@ body.environment-enabled.debug .hotspot {
     top: 0;
     width: 44.4%;
     height: 99.6%;
-    cursor: url("assets/ui/cursors/WH_UI_pick_up.png") 15 20, pointer !important;
+    cursor: url("assets/ui/cursors/WH_UI_pick_up.webp") 15 20, pointer !important;
 }
 
 .spirit-equipment-crucifix {
@@ -1075,7 +1075,7 @@ body.messenger-available #messengerRelay {
     position: relative;
     width: 100%;
     height: 100%;
-    background-image: url("assets/ui/WH_UI_Inventory_Open.png");
+    background-image: url("assets/ui/WH_UI_Inventory_Open.webp");
     background-size: 100% 100%;
     background-repeat: no-repeat;
     filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
@@ -1280,7 +1280,7 @@ body.messenger-available #messengerRelay {
 }
 
 #listeningClueOverlay {
-    background: #000 url("assets/ui/Black.png") center / cover no-repeat;
+    background: #000 url("assets/ui/Black.webp") center / cover no-repeat;
 }
 
 #listeningEyesOverlay {
@@ -1439,7 +1439,7 @@ body.messenger-available #messengerRelay {
 #explosionImage {
     position: absolute;
     inset: 0;
-    background-image: url("assets/environments/exterior/WH_ENV_EXT_CabinFront_exploded_MASTER_v01.png");
+    background-image: url("assets/environments/exterior/WH_ENV_EXT_CabinFront_exploded_MASTER_v01.webp");
     background-size: cover;
     background-position: center;
     opacity: 0;
@@ -1574,7 +1574,7 @@ body.messenger-available #messengerRelay {
     display: none;
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.2) url("assets/environments/kitchen/WH_ENV_KITCHEN_Safe_Lock_MASTER_v02.png") center / contain no-repeat;
+    background: rgba(0, 0, 0, 0.2) url("assets/environments/kitchen/WH_ENV_KITCHEN_Safe_Lock_MASTER_v02.webp") center / contain no-repeat;
     z-index: 14;
 }
 
@@ -1676,7 +1676,7 @@ body.raven-wordle #ravenPuzzleOverlay {
     position: relative;
     width: min(980px, calc(100vw - 12px));
     padding: 62px 78px 44px;
-    background-image: url("assets/ui/WH_UI_Frame_Large.png");
+    background-image: url("assets/ui/WH_UI_Frame_Large.webp");
     background-size: 100% 100%;
     background-repeat: no-repeat;
     box-sizing: border-box;
@@ -2850,13 +2850,13 @@ body.raven-wordle #ravenPuzzleOverlay {
     <img id="roleCardImage" alt="Tilldelad roll">
 </div>
 <div id="coughUpOverlay" role="dialog" aria-modal="true" aria-label="Du hostade upp något">
-    <img id="coughUpImage" src="assets/ui/WH_UI_Cough_up.png" alt="Du hostade upp något">
+    <img id="coughUpImage" src="assets/ui/WH_UI_Cough_up.webp" alt="Du hostade upp något">
 </div>
 <div id="listeningClueOverlay" aria-hidden="true">
     <img id="listeningClueImage" alt="Symbolen bakom stängda ögon">
 </div>
 <div id="listeningEyesOverlay" aria-hidden="true">
-    <img id="listeningEyesImage" src="assets/ui/WH_UI_Eyes.png" alt="Stängda ögon">
+    <img id="listeningEyesImage" src="assets/ui/WH_UI_Eyes.webp" alt="Stängda ögon">
 </div>
 
 <div id="viewport">
@@ -2890,7 +2890,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 </div>
 
 <div id="messengerRelay" class="drop-zone" role="button" tabindex="0" aria-label="Skicka föremål via Budbäraren" title="Skicka föremål via Budbäraren">
-    <img src="assets/interactables/Exterior/WH_AST_BAG_v01.png" alt="Budbärarens väska">
+    <img src="assets/interactables/Exterior/WH_AST_BAG_v01.webp" alt="Budbärarens väska">
     <span id="messengerRelayLabel">Budbäraren</span>
 </div>
 
@@ -2909,7 +2909,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 <div id="toast" role="status"></div>
 
 <div id="recipeBookOverlay" role="dialog" aria-modal="true" aria-label="Receptbok">
-    <img id="recipeBookImage" src="assets/ui/WH_UI_Recipe_book.png" alt="Receptbok">
+    <img id="recipeBookImage" src="assets/ui/WH_UI_Recipe_book.webp" alt="Receptbok">
 </div>
 
 <div id="noteOverlay" role="dialog" aria-modal="true" aria-label="Lapp">
@@ -2921,9 +2921,9 @@ body.raven-wordle #ravenPuzzleOverlay {
 
 <div id="ouijaBoardOverlay" role="dialog" aria-modal="true" aria-label="Ouija-bräde">
     <div id="ouijaBoardFrame">
-        <img id="ouijaBoardImage" src="assets/interactables/Seance/WH_AST_OuijaBoard_v01.png" alt="Ouija-bräde">
+        <img id="ouijaBoardImage" src="assets/interactables/Seance/WH_AST_OuijaBoard_v01.webp" alt="Ouija-bräde">
         <div id="ouijaLetterHints" aria-hidden="true"></div>
-        <img id="ouijaPlanchette" src="assets/interactables/Seance/WH_AST_Planchette_v01.png" alt="Planchette" draggable="false">
+        <img id="ouijaPlanchette" src="assets/interactables/Seance/WH_AST_Planchette_v01.webp" alt="Planchette" draggable="false">
         <div id="ouijaMessage" role="status" aria-live="polite"></div>
         <button id="ouijaBoardClose" type="button" aria-label="Stäng ouija-brädet" title="Stäng">×</button>
     </div>
@@ -2961,7 +2961,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 
   <img
     id="spiritVisionFrameImage"
-    src="assets/interactables/Seance/WH_UI_SEANCE_CrystalBall_Vision_Frame_v02.png"
+    src="assets/interactables/Seance/WH_UI_SEANCE_CrystalBall_Vision_Frame_v02.webp"
     alt="Kristallkula"
 >
 
@@ -3123,8 +3123,8 @@ const LOBBY_MAX_PLAYER_COUNT = 4;
 const KIRKE_PORTRAIT_HOTSPOT = {
     item: "portraitKirke",
     icon: () => loungeState.puzzleSolved
-        ? "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_happy_v01.png"
-        : "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_Stressed_v01.png",
+        ? "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_happy_v01.webp"
+        : "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_Stressed_v01.webp",
     pickupRequiresState: () => loungeState.puzzleSolved,
     pickupBlockedMessage: "Hon ser väldigt stressad ut över att alla skivor är i oordning",
     portraitGlow: true,
@@ -3160,37 +3160,37 @@ const SPIRIT_REALM_STEPS = [
     {
         id: "loungeSpiritArrival",
         name: "Anderiket - Ankomst",
-        file: "WH_ENV_Spirit_Master_v02.png"
+        file: "WH_ENV_Spirit_Master_v02.webp"
     },
 
     {
         id: "loungeSpiritRealm",
         name: "Anderiket",
-        file: "WH_ENV_Spirit_Master_v01.png"
+        file: "WH_ENV_Spirit_Master_v01.webp"
     },
 
     {
         id: "loungeSpiritRealm2",
         name: "Anderiket",
-        file: "WH_ENV_Spirit_Master_v01.png"
+        file: "WH_ENV_Spirit_Master_v01.webp"
     },
 
     {
         id: "spiritWoods1",
         name: "Anderiket - Skogen",
-        file: "1SpiritWoods/WH_ENV_SpiritWoods_Master_v01.png"
+        file: "1SpiritWoods/WH_ENV_SpiritWoods_Master_v01.webp"
     },
 
     ...Array.from({ length: 5 }, (_, index) => ({
         id: `spiritWoods${index + 2}`,
         name: "Anderiket - Skogen",
-        file: `1SpiritWoods/WH_ENV_SpiritWoods${index + 2}_Master_v01.png`
+        file: `1SpiritWoods/WH_ENV_SpiritWoods${index + 2}_Master_v01.webp`
     })),
 
     {
         id: "spiritTunnel",
         name: "Anderiket - Tunneln",
-        file: "2Tunnel/WH_ENV_Tunnel_Master_v01.png"
+        file: "2Tunnel/WH_ENV_Tunnel_Master_v01.webp"
     },
 
     ...Array.from({ length: 3 }, (_, index) => ({
@@ -3198,38 +3198,38 @@ const SPIRIT_REALM_STEPS = [
         name: "Anderiket - Tunneln",
         file:
             index === 1
-                ? "2Tunnel/WH_ENV_Tunnel_Turn2_Master_v01.png.png"
-                : `2Tunnel/WH_ENV_Tunnel_Turn${index + 1}_Master_v01.png`
+                ? "2Tunnel/WH_ENV_Tunnel_Turn2_Master_v01.png.webp"
+                : `2Tunnel/WH_ENV_Tunnel_Turn${index + 1}_Master_v01.webp`
     })),
 
     ...Array.from({ length: 16 }, (_, index) => ({
         id: `spiritTunnelRun${index + 1}`,
         name: "Anderiket - Tunneln",
-        file: `2Tunnel/WH_ENV_Tunnel_Run${index + 1}_Master_${index < 9 ? "v01" : "01"}.png`
+        file: `2Tunnel/WH_ENV_Tunnel_Run${index + 1}_Master_${index < 9 ? "v01" : "01"}.webp`
     })),
 
     {
         id: "spiritTunnelLight",
         name: "Anderiket - Tunneln",
-        file: "2Tunnel/WH_ENV_Tunnel_Light_Master_v01.png"
+        file: "2Tunnel/WH_ENV_Tunnel_Light_Master_v01.webp"
     },
 
     ...Array.from({ length: 42 }, (_, index) => ({
         id: `spiritForestPath${index + 1}`,
         name: "Anderiket - Skogsstigen",
-        file: `3ForestPath/WH_ENV_ForestPath${index + 1}_Master_01.png`
+        file: `3ForestPath/WH_ENV_ForestPath${index + 1}_Master_01.webp`
     })),
 
     ...Array.from({ length: 6 }, (_, index) => ({
         id: `spiritSwamp${index + 1}`,
         name: "Anderiket - Träsket",
-        file: `4Swamp/WH_ENV_Swamp${index + 1}_Master_01.png`
+        file: `4Swamp/WH_ENV_Swamp${index + 1}_Master_01.webp`
     })),
 
     ...Array.from({ length: 12 }, (_, index) => ({
         id: `spiritSwamp${index + 8}`,
         name: "Anderiket - Träsket",
-        file: `4Swamp/WH_ENV_Swamp${index + 8}_Master_01.png`
+        file: `4Swamp/WH_ENV_Swamp${index + 8}_Master_01.webp`
     }))
 ];
 
@@ -3275,7 +3275,7 @@ function spiritSymbol(file, label, x, y, w = 10, h = 15) {
     };
 }
 
-const SPIRIT_FOG_IMAGE = "assets/interactables/Spirit/Fogg (2).png";
+const SPIRIT_FOG_IMAGE = "assets/interactables/Spirit/Fogg (2).webp";
 
 function normalizeSpiritTerm(value) {
     return String(value || "")
@@ -3305,15 +3305,15 @@ const SPIRIT_HOTSPOTS = {
     loungeSpiritRealm: [
         spiritChoice("loungeSpiritRealm", "spiritWrongPath", "Stig vänster", "fågel", 9.4, 37.3, 15.2, 26.5, true),
         spiritChoice("loungeSpiritRealm", "spiritGoWoods1", "Stig höger", "spiral", 74.4, 33.8, 16.5, 29.6, true),
-        spiritSymbol("WH_AST_SeanceRoom_Bird_v01.png", "Fågel", 11.7, 41.2),
-        spiritSymbol("WH_AST_SeanceRoom_Spiral_v01.png", "Spiral", 77.1, 40.8)
+        spiritSymbol("WH_AST_SeanceRoom_Bird_v01.webp", "Fågel", 11.7, 41.2),
+        spiritSymbol("WH_AST_SeanceRoom_Spiral_v01.webp", "Spiral", 77.1, 40.8)
     ],
 
     loungeSpiritRealm2: [
         spiritChoice("loungeSpiritRealm2", "spiritGoWoods2Return", "Stig vänster", "uggla", 9.4, 37.3, 15.2, 26.5, true),
         spiritChoice("loungeSpiritRealm2", "spiritWrongPath", "Stig höger", "cirkel", 74.4, 33.8, 16.5, 29.6, true),
-        spiritSymbol("WH_AST_SeanceRoom_Owl_v01.png", "Uggla", 11.7, 41.2),
-        spiritSymbol("WH_AST_SeanceRoom_Circle_v01.png", "Cirkel", 77.1, 40.8)
+        spiritSymbol("WH_AST_SeanceRoom_Owl_v01.webp", "Uggla", 11.7, 41.2),
+        spiritSymbol("WH_AST_SeanceRoom_Circle_v01.webp", "Cirkel", 77.1, 40.8)
     ],
 
     spiritWoods1: [
@@ -3321,10 +3321,10 @@ const SPIRIT_HOTSPOTS = {
         spiritChoice("spiritWoods1", "spiritWrongPath", "Stig 2", "krok", 29.4, 31.7, 11.1, 22.1, true),
         spiritChoice("spiritWoods1", "spiritWrongPath", "Stig 3", "måne", 59.5, 23.1, 10.1, 26.8, true),
         spiritChoice("spiritWoods1", "spiritWrongPath", "Stig 4", "hjort", 78.7, 29.7, 10.9, 25.4, true),
-        spiritSymbol("WH_AST_SeanceRoom_Sun_v01.png", "Sol", 6.8, 30.9),
-        spiritSymbol("WH_AST_SeanceRoom_Hook_v01.png", "Krok", 30.1, 35.6),
-        spiritSymbol("WH_AST_SeanceRoom_Moon_v01.png", "Måne", 59.3, 31.2),
-        spiritSymbol("WH_AST_SeanceRoom_Stag_v01.png", "Hjort", 79.8, 36.4)
+        spiritSymbol("WH_AST_SeanceRoom_Sun_v01.webp", "Sol", 6.8, 30.9),
+        spiritSymbol("WH_AST_SeanceRoom_Hook_v01.webp", "Krok", 30.1, 35.6),
+        spiritSymbol("WH_AST_SeanceRoom_Moon_v01.webp", "Måne", 59.3, 31.2),
+        spiritSymbol("WH_AST_SeanceRoom_Stag_v01.webp", "Hjort", 79.8, 36.4)
     ],
 
     spiritWoods2: [
@@ -3336,10 +3336,10 @@ const SPIRIT_HOTSPOTS = {
         spiritChoice("spiritWoods3", "spiritWrongPath", "Stig 2", "varg", 36.5, 22.4, 9, 20.4, true),
         spiritChoice("spiritWoods3", "spiritWrongPath", "Stig 3", "träd", 59.6, 23.3, 9.4, 27.9, true),
         spiritChoice("spiritWoods3", "spiritGoRealm2", "Stig 4", "lampa", 79.3, 29.6, 8.3, 20.5, true),
-        spiritSymbol("WH_AST_SeanceRoom_Montain_v01.png", "Berg", 4.2, 27),
-        spiritSymbol("WH_AST_SeanceRoom_Wolf_v01.png", "Varg", 36.5, 24.4),
-        spiritSymbol("WH_AST_SeanceRoom_Tree_v01.png", "Träd", 59.9, 28.4),
-        spiritSymbol("WH_AST_SeanceRoom_Lamp_v01.png", "Lampa", 78.5, 31)
+        spiritSymbol("WH_AST_SeanceRoom_Montain_v01.webp", "Berg", 4.2, 27),
+        spiritSymbol("WH_AST_SeanceRoom_Wolf_v01.webp", "Varg", 36.5, 24.4),
+        spiritSymbol("WH_AST_SeanceRoom_Tree_v01.webp", "Träd", 59.9, 28.4),
+        spiritSymbol("WH_AST_SeanceRoom_Lamp_v01.webp", "Lampa", 78.5, 31)
     ],
 
     spiritWoods4: [
@@ -3359,37 +3359,37 @@ const SPIRIT_HOTSPOTS = {
     ],
 
     spiritTunnelTurn3: [
-        { x: 46.8, y: 21.8, w: 13.5, h: 40.5, icon: "assets/interactables/Spirit/WH_AST_Follower.png", decorative: true, label: "Följare" },
+        { x: 46.8, y: 21.8, w: 13.5, h: 40.5, icon: "assets/interactables/Spirit/WH_AST_Follower.webp", decorative: true, label: "Följare" },
         spiritHotspot("spiritTunnelRunStart", "Fortsätt")
     ],
 
     spiritTunnelRun3: [
         spiritHotspot("spiritTunnelLeft", "Vänster", 5, 18, 42, 68),
         spiritHotspot("spiritTunnelRight", "Höger", 53, 18, 42, 68),
-        spiritSymbol("WH_AST_SeanceRoom_ArrowLeft_v01.png", "Pil vänster", 44.7, 33.6)
+        spiritSymbol("WH_AST_SeanceRoom_ArrowLeft_v01.webp", "Pil vänster", 44.7, 33.6)
     ],
 
     spiritTunnelRun13: [
         spiritChoice("spiritTunnelRun13", "spiritTunnelAxe", "Yxa", "yxa", 28, 18, 44, 65),
-        spiritSymbol("WH_AST_SeanceRoom_Axe_v01.png", "Yxa", 48.8, 33.9)
+        spiritSymbol("WH_AST_SeanceRoom_Axe_v01.webp", "Yxa", 48.8, 33.9)
     ],
 
     spiritForestPath5: [
         spiritHotspot("spiritForestLeft", "Vänster", 4, 15, 44, 72),
         spiritHotspot("spiritForestRight", "Höger", 52, 15, 44, 72),
-        spiritSymbol("WH_AST_SeanceRoom_ArrowRight.png", "Pil höger", 44.7, 43.1)
+        spiritSymbol("WH_AST_SeanceRoom_ArrowRight.webp", "Pil höger", 44.7, 43.1)
     ],
 
     spiritForestPath16: [
         spiritHotspot("spiritForestOver", "Över", 18, 4, 64, 42),
         spiritHotspot("spiritForestUnder", "Under", 18, 52, 64, 44),
-        spiritSymbol("WH_AST_SeanceRoom_ArrowDown_v01.png", "Pil ner", 48.9, 41.5)
+        spiritSymbol("WH_AST_SeanceRoom_ArrowDown_v01.webp", "Pil ner", 48.9, 41.5)
     ],
 
     spiritForestPath31: [
         { ...spiritHotspot("spiritForestMiss", "Miss", 4, 12, 44, 78), cursor: "down" },
         { ...spiritChoice("spiritForestPath31", "spiritForestRope", "Rep", "rep", 52, 12, 44, 78), cursor: "pick_up" },
-        spiritSymbol("WH_AST_SeanceRoom_Rope_v01.png", "Rep", 60.3, 0.1, 35.8, 91.5)
+        spiritSymbol("WH_AST_SeanceRoom_Rope_v01.webp", "Rep", 60.3, 0.1, 35.8, 91.5)
     ],
 
     spiritSwamp1: [
@@ -3418,7 +3418,7 @@ const SPIRIT_HOTSPOTS = {
 
     spiritSwamp8: [
         spiritHotspot("spiritSwampSwim", "Simma", 56.8, 55.4, 30.3, 33.6),
-        spiritSymbol("WH_AST_SeanceRoom_Log__v01.png", "Stock", 28.9, 52.7, 22.7, 28.3)
+        spiritSymbol("WH_AST_SeanceRoom_Log__v01.webp", "Stock", 28.9, 52.7, 22.7, 28.3)
     ],
 
     spiritSwamp12: [
@@ -3426,7 +3426,7 @@ const SPIRIT_HOTSPOTS = {
     ],
 
     spiritSwamp19: [
-        spiritSymbol("WH_AST_SeanceRoom_Cross_v01.png", "Krucifix", 42, 28, 16, 24)
+        spiritSymbol("WH_AST_SeanceRoom_Cross_v01.webp", "Krucifix", 42, 28, 16, 24)
     ],
 
     spiritSwamp17: [
@@ -3460,7 +3460,7 @@ const scenes = {
 
     exterior: {
         name: "Utanför huset",
-        image: "assets/environments/exterior/WH_ENV_EXT_CabinFront_MASTER_v01.png",
+        image: "assets/environments/exterior/WH_ENV_EXT_CabinFront_MASTER_v01.webp",
         hotspots: [
             { x: 43, y: 38.5, w: 14, h: 59.8, target: "exteriorDoor", cursor: "forward", label: "Ytterdörr" }
         ]
@@ -3468,23 +3468,23 @@ const scenes = {
 
     ext_pole: {
         name: "Stolpen",
-        image: "assets/environments/exterior/WH_ENV_EXT_Pole_MASTER_v01.png",
+        image: "assets/environments/exterior/WH_ENV_EXT_Pole_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "exteriorDoor", label: "Tillbaka" },
             { x: 78.5, y: 5.6, w: 21.1, h: 83.1, target: "hall", cursor: "door", label: "Gå in i Häxans Hus" },
-            { x: 43.3, y: 38, w: 13.7, h: 24, special: "readNote", noteImage: "assets/ui/WH_UI_Doornote.png", icon: "assets/interactables/Exterior/WH_AST_NOTE_Nailed_v01.png", label: "lapp" },
+            { x: 43.3, y: 38, w: 13.7, h: 24, special: "readNote", noteImage: "assets/ui/WH_UI_Doornote.webp", icon: "assets/interactables/Exterior/WH_AST_NOTE_Nailed_v01.webp", label: "lapp" },
             { x: 46.1, y: 63.1, w: 8.8, h: 16.8, special: "hookKey", label: "hook_key" }
         ]
     },
 
     exteriorDoor: {
         name: "Ytterdörren",
-        image: "assets/environments/exterior/WH_ENV_EXT_Door_MASTER_v01.png",
+        image: "assets/environments/exterior/WH_ENV_EXT_Door_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "exterior", label: "Tillbaka" },
             { x: 35, y: 20, w: 30, h: 60, target: "hall", cursor: "door", label: "Gå in i Häxans Hus" },
             { x: 17.1, y: 43.5, w: 11.6, h: 34.5, target: "ext_pole", label: "meddelande" },
-            { x: 21.1, y: 51.3, w: 2.9, h: 8.1, special: "readNote", decorative: true, icon: "assets/interactables/Exterior/WH_AST_NOTE_Nailed_v01.png", label: "lapp" },
+            { x: 21.1, y: 51.3, w: 2.9, h: 8.1, special: "readNote", decorative: true, icon: "assets/interactables/Exterior/WH_AST_NOTE_Nailed_v01.webp", label: "lapp" },
             { x: 20.6, y: 60.6, w: 3.6, h: 7.8, special: "hookKey", decorative: true, label: "hook_key" },
             { x: 75.7, y: 77, w: 16.1, h: 21, target: "ext_floor", cursor: "down", requiresState: () => isFourPlayerGame(), label: "Golvet vid dörren" }
         ]   
@@ -3492,51 +3492,51 @@ const scenes = {
 
     ext_floor: {
         name: "Utanför huset - Golvet",
-        image: "assets/environments/exterior/WH_ENV_EXT_Door_MASTER_v01.png",
+        image: "assets/environments/exterior/WH_ENV_EXT_Door_MASTER_v01.webp",
         backgroundSize: "220%",
         backgroundPosition: "100% 100%",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "exteriorDoor", label: "Tillbaka" },
             { x: 0.9, y: 1, w: 19.4, h: 75, target: "hall", cursor: "door", label: "Gå in i Häxans Hus" },
-            { x: 60.7, y: 40.9, w: 17.8, h: 27.5, item: "messengerBag", icon: "assets/interactables/Exterior/WH_AST_BAG_v01.png", requiresState: () => isFourPlayerGame() && !loungeState.roles.messenger, label: "Väskan" }
+            { x: 60.7, y: 40.9, w: 17.8, h: 27.5, item: "messengerBag", icon: "assets/interactables/Exterior/WH_AST_BAG_v01.webp", requiresState: () => isFourPlayerGame() && !loungeState.roles.messenger, label: "Väskan" }
         ]
     },
 
     hall: {
         name: "Hallen",
         image: () => pickedUpItems.has("homebrewBook")
-            ? "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v03.png"
+            ? "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v03.webp"
             : hallState.wallBroken
-                ? "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v02.png"
-                : "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v01.png",
+                ? "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v02.webp"
+                : "assets/environments/hall/WH_ENV_HALL_MainHall_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "exteriorDoor", label: "Ut" },
             { x: 4.5, y: 16, w: 11, h: 60, target: "kitchen", doorId: "kitchenDoor", requiredItem: "kitchenDoorKey", lockedMessage: "Du rycker i handtaget men ingenting händer.\nHur är det här möjligt? Det har aldrig hänt dig förut och det är definitivt inget uppenbart du missade på vägen in", lockedDuration: 3600, label: "Kök" },
             { x: 86.6, y: 24.5, w: 11, h: 60, target: "toilet", doorId: "toiletDoor", requiredItem: "toiletKey", lockedMessage: "Man_som_Sprängs_I_Båda_Ändar.mp3 har blockerats av spelutvecklaren, det måste vara toaletten", label: "Toalett" },
             { x: 63, y: 31.4, w: 12, h: 30, target: "upperHallway", requiresState: () => hallState.wallBroken, label: "Trappa upp" },
-            { x: 91.3, y: 87.4, w: 8.1, h: 11, item: "bellows", icon: "assets/interactables/Kitchen/bellows.png", label: "Bälg" },
+            { x: 91.3, y: 87.4, w: 8.1, h: 11, item: "bellows", icon: "assets/interactables/Kitchen/bellows.webp", label: "Bälg" },
             { x: 30.2, y: 19, w: 49.4, h: 48.6, special: "hallWall", requiresState: () => !hallState.wallBroken, label: "Vägg" },
             { x: 62.8, y: 18.5, w: 17.6, h: 13.2, special: "lookFlavor", flavorText: "En samling urnor med exmakars namn, en av dem ser ut att användas som askkopp", requiresState: () => !hallState.wallBroken, label: "Urnor" },
             { x: 32.6, y: 22.6, w: 8.1, h: 20.7, special: "lookFlavor", flavorText: "En väldigt generisk plansch med månens positioner, men den är feltryckt. Måste vara från Dollar Store", requiresState: () => !hallState.wallBroken, label: "Plansch" },
             { x: 25.7, y: 23.2, w: 23.3, h: 37.1, special: "lookFlavor", flavorText: "Mysig nook under trappen, säkert full med intressanta saker. Aja", requiresState: () => hallState.wallBroken, label: "Nook under trappen" },
-            { x: 30, y: 67.4, w: 4, h: 8, decorative: true, icon: "assets/interactables/Hall/flame.png", hideAfterPickup: "homebrewBook", requiresState: () => pickedUpItems.has("labKey") && !hallState.wallBroken, label: "Låga" },
-            { x: 29.9, y: 63.2, w: 4.2, h: 11.6, decorative: true, icon: "assets/interactables/Hall/flame.png", hideAfterPickup: "homebrewBook", requiresState: () => pickedUpItems.has("labKey") && hallState.wallBroken, label: "Låga" },
-            { x: 49.9, y: 58.4, w: 3.8, h: 8.2, decorative: true, icon: "assets/interactables/Hall/flame.png", hideAfterPickup: "homebrewBook", requiresState: () => pickedUpItems.has("seanceKey"), label: "Låga" },
-            { x: 69.7, y: 70.2, w: 4.1, h: 7.9, decorative: true, icon: "assets/interactables/Hall/flame.png", hideAfterPickup: "homebrewBook", requiresState: () => hallState.scentSprayed, label: "Låga" },
+            { x: 30, y: 67.4, w: 4, h: 8, decorative: true, icon: "assets/interactables/Hall/flame.webp", hideAfterPickup: "homebrewBook", requiresState: () => pickedUpItems.has("labKey") && !hallState.wallBroken, label: "Låga" },
+            { x: 29.9, y: 63.2, w: 4.2, h: 11.6, decorative: true, icon: "assets/interactables/Hall/flame.webp", hideAfterPickup: "homebrewBook", requiresState: () => pickedUpItems.has("labKey") && hallState.wallBroken, label: "Låga" },
+            { x: 49.9, y: 58.4, w: 3.8, h: 8.2, decorative: true, icon: "assets/interactables/Hall/flame.webp", hideAfterPickup: "homebrewBook", requiresState: () => pickedUpItems.has("seanceKey"), label: "Låga" },
+            { x: 69.7, y: 70.2, w: 4.1, h: 7.9, decorative: true, icon: "assets/interactables/Hall/flame.webp", hideAfterPickup: "homebrewBook", requiresState: () => hallState.scentSprayed, label: "Låga" },
             { x: 29.8, y: 67.1, w: 44.3, h: 27.1, special: "hallPentagram", requiresState: () => pickedUpItems.has("homebrewBook"), label: "Pentagram" },
-            { x: 28.5, y: 58.8, w: 48.3, h: 39.1, special: "messengerBody", icon: "assets/interactables/Hall/body_floor.png", requiresState: () => loungeState.messengerDead, label: "Budbärarens kropp" }
+            { x: 28.5, y: 58.8, w: 48.3, h: 39.1, special: "messengerBody", icon: "assets/interactables/Hall/body_floor.webp", requiresState: () => loungeState.messengerDead, label: "Budbärarens kropp" }
         ]
     },
     kitchen: {
         name: "Köket",
-        image: "assets/environments/kitchen/WH_ENV_KITCHEN_BabaYaga_MASTER_v02.png",
+        image: "assets/environments/kitchen/WH_ENV_KITCHEN_BabaYaga_MASTER_v02.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "hall", label: "Tillbaka till hallen" },
             { x: 1.7, y: 58, w: 16, h: 10, target: "kitchenTable", label: "Bordet" },
             { x: 30, y: 27, w: 8, h: 36, target: "kitchenShelf", cursor: "forward", label: "Bokhylla" },
             { x: 41, y: 68, w: 16, h: 12, target: "kitchenFire", cursor: "under", label: "Elden under kitteln" },
             { x: 41, y: 42, w: 16, h: 6, target: "kitchenKettle", cursor: "over", label: "Toppen av kitteln" },
-            { x: 77.1, y: 32, w: 11, h: 27, target: "kitchenPortrait", icon: "assets/interactables/Kitchen/portrait_on_wall_baba_jaga.png", corners: { tl: [77.5, 33.9], tr: [88.0, 30.7], bl: [77.5, 53.5], br: [88.0, 56.6] }, portraitGlow: true, keepAfterPickup: true, hideIconAfterPickup: "portraitBabaYaga", label: "Porträtt" },
+            { x: 77.1, y: 32, w: 11, h: 27, target: "kitchenPortrait", icon: "assets/interactables/Kitchen/portrait_on_wall_baba_jaga.webp", corners: { tl: [77.5, 33.9], tr: [88.0, 30.7], bl: [77.5, 53.5], br: [88.0, 56.6] }, portraitGlow: true, keepAfterPickup: true, hideIconAfterPickup: "portraitBabaYaga", label: "Porträtt" },
             { x: 56.8, y: 28.1, w: 16.3, h: 38.5, target: "kitchenDoor", cursor: "forward", label: "Skafferi" },
             { x: 77.1, y: 16.2, w: 10, h: 15, target: "kitchenRaven", label: "Korpen" },
             { x: 82.3, y: 63.8, w: 12.1, h: 20.7, special: "lookFlavor", flavorText: "En liten byrå, igenspikad", label: "Byrå" }
@@ -3545,22 +3545,22 @@ const scenes = {
 
     kitchenTable: {
         name: "Köket - Bordet",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Table_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Table_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchen", label: "Tillbaka" },
             { x: 34, y: 39, w: 38, h: 42, special: "itemSurface", surfaceId: "kitchenTable", label: "Lägg ifrån dig föremål" },
-            { x: 82.7, y: 43.4, w: 10, h: 15, special: "readNote", noteImage: "assets/ui/WH_UI_BabaNote.png", icon: "assets/interactables/Kitchen/baba_note.png", label: "Babas lapp" },
-            { x: 11.3, y: 59.6, w: 13.7, h: 20.3, special: "tarotDeck", icon: "assets/interactables/Kitchen/tarot_deck.png", cursor: "pick_up", label: "Tarotkort" },
+            { x: 82.7, y: 43.4, w: 10, h: 15, special: "readNote", noteImage: "assets/ui/WH_UI_BabaNote.webp", icon: "assets/interactables/Kitchen/baba_note.webp", label: "Babas lapp" },
+            { x: 11.3, y: 59.6, w: 13.7, h: 20.3, special: "tarotDeck", icon: "assets/interactables/Kitchen/tarot_deck.webp", cursor: "pick_up", label: "Tarotkort" },
             { x: 58.8, y: 38.9, w: 20.4, h: 25.2, special: "mortar", label: "Mortel" }
             ]
             },
 
             kitchenShelf: {
         name: "Köket - Bokhylla",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Shelf_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Shelf_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchen", label: "Tillbaka" },
-            { x: 57.2, y: 45.1, w: 9.9, h: 17.1, item: "frogBrain", icon: "assets/interactables/Kitchen/brain_jar.png", label: "Burk med grodhjärna" },
+            { x: 57.2, y: 45.1, w: 9.9, h: 17.1, item: "frogBrain", icon: "assets/interactables/Kitchen/brain_jar.webp", label: "Burk med grodhjärna" },
             { x: 43.3, y: 23.9, w: 25.8, h: 16.1, special: "recipeBook", recipeBookVisual: true, decorative: true, label: "En massa konstiga böcker" },
             { x: 53.6, y: 23.1, w: 4.5, h: 19.0, special: "recipeBook", hideAfterPickup: "notebook", label: "Receptboken" },
             { x: 38.2, y: 2.6, w: 28.9, h: 18.2, special: "lookFlavor", flavorText: "En massa kantareller i olika stadier av förruttnelse", label: "Kantareller" },
@@ -3573,8 +3573,8 @@ const scenes = {
     kitchenFire: {
         name: "Köket - Elden under kitteln",
         image: () => kitchenState.kettleBoiling
-            ? "assets/environments/kitchen/WH_VIEW_KITCHEN_Fire_large_MASTER_v01.png"
-            : "assets/environments/kitchen/WH_VIEW_KITCHEN_Fire_MASTER_v01.png",
+            ? "assets/environments/kitchen/WH_VIEW_KITCHEN_Fire_large_MASTER_v01.webp"
+            : "assets/environments/kitchen/WH_VIEW_KITCHEN_Fire_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchen", label: "Tillbaka" },
             { x: 37.8, y: 35.6, w: 26.3, h: 31.2, special: "fireplace", label: "Elden" }
@@ -3584,10 +3584,10 @@ const scenes = {
     kitchenKettle: {
         name: "Köket - Toppen av kitteln",
         image: () => kitchenState.kettlePotion
-            ? "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_Potion_MASTER_v02.png"
+            ? "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_Potion_MASTER_v02.webp"
             : kitchenState.kettleBoiling
-                ? "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_Boiling_MASTER_v02.png"
-                : "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_MASTER_v02.png",
+                ? "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_Boiling_MASTER_v02.webp"
+                : "assets/environments/kitchen/WH_ENV_KITCHEN_Kettle_MASTER_v02.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchen", label: "Tillbaka" },
             { x: 21.3, y: 14.1, w: 61.5, h: 69.5, special: "kettle", label: "Kitteln" }
@@ -3596,10 +3596,10 @@ const scenes = {
 
     kitchenPortrait: {
         name: "Köket - Porträtt",
-        image: "assets/environments/kitchen/WH_ENV_KITCHEN_Portrait_MASTER_v02.png",
+        image: "assets/environments/kitchen/WH_ENV_KITCHEN_Portrait_MASTER_v02.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchen", label: "Tillbaka" },
-            { x: 35, y: 20, w: 30, h: 45, item: "portraitBabaYaga", icon: "assets/interactables/Kitchen/portrait_on_wall_baba_jaga.png", corners: { tl: [40.8, 10.0], tr: [77.7, 3.7], bl: [41.4, 83.7], br: [77.6, 92.8] }, portraitGlow: true, pickupRequiresState: () => playerState.potionDrunk, pickupBlockedMessage: "En fräsch ung dam i sina bästa år", label: "Porträtt: Baba Jaga" },
+            { x: 35, y: 20, w: 30, h: 45, item: "portraitBabaYaga", icon: "assets/interactables/Kitchen/portrait_on_wall_baba_jaga.webp", corners: { tl: [40.8, 10.0], tr: [77.7, 3.7], bl: [41.4, 83.7], br: [77.6, 92.8] }, portraitGlow: true, pickupRequiresState: () => playerState.potionDrunk, pickupBlockedMessage: "En fräsch ung dam i sina bästa år", label: "Porträtt: Baba Jaga" },
             {
                 target: "kitchenSafeLock",
                 hiddenUntil: "portraitBabaYaga",
@@ -3611,26 +3611,26 @@ const scenes = {
                 }),
                 label: "Öppna kassaskåpet"
             },
-            { x: 54.2, y: 48.7, w: 10, h: 15, special: "readNote", noteImage: "assets/ui/WH_UI_Kirknote.png", icon: "assets/interactables/Kitchen/kirke_note.png", requiresState: () => kitchenState.safeOpen, label: "Kirkes lapp" },
-            { x: 54.6, y: 31.9, w: 10, h: 15, item: "labKey", icon: "assets/interactables/Kitchen/gear_key.png", requiresState: () => kitchenState.safeOpen, label: "Nyckel i kassaskåpet" },
-            { x: 53.6, y: 49.1, w: 10, h: 15, item: "sledgehammer", icon: "assets/interactables/Kitchen/sledgehammer.png", requiresState: () => kitchenState.safeOpen, label: "Slägga" }
+            { x: 54.2, y: 48.7, w: 10, h: 15, special: "readNote", noteImage: "assets/ui/WH_UI_Kirknote.webp", icon: "assets/interactables/Kitchen/kirke_note.webp", requiresState: () => kitchenState.safeOpen, label: "Kirkes lapp" },
+            { x: 54.6, y: 31.9, w: 10, h: 15, item: "labKey", icon: "assets/interactables/Kitchen/gear_key.webp", requiresState: () => kitchenState.safeOpen, label: "Nyckel i kassaskåpet" },
+            { x: 53.6, y: 49.1, w: 10, h: 15, item: "sledgehammer", icon: "assets/interactables/Kitchen/sledgehammer.webp", requiresState: () => kitchenState.safeOpen, label: "Slägga" }
         ]
     },
 
     kitchenSafeLock: {
         name: "Köket - Kassaskåpslås",
-        image: "assets/environments/kitchen/WH_ENV_KITCHEN_Portrait_MASTER_v02.png",
+        image: "assets/environments/kitchen/WH_ENV_KITCHEN_Portrait_MASTER_v02.webp",
         hotspots: []
     },
 
     kitchenDoor: {
         name: "Köket - Dörr",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Door_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Door_MASTER_v01.webp",
         hotspots: [
             { x: 28.9, y: 93.6, w: 53.6, h: 6, target: "kitchen", label: "Tillbaka" },
             { x: 2.1, y: 4.5, w: 23, h: 90, target: "kitchenPantry", label: "Gå in i skafferiet" },
             { x: 35.5, y: 80.4, w: 20, h: 13, target: "kitchenDrawersClosed", label: "Lådor" },
-            { x: 42.9, y: 66.2, w: 3.9, h: 13.5, item: "emptyBottle", icon: "assets/interactables/Kitchen/empty_bottle.png", label: "Tom flaska" }
+            { x: 42.9, y: 66.2, w: 3.9, h: 13.5, item: "emptyBottle", icon: "assets/interactables/Kitchen/empty_bottle.webp", label: "Tom flaska" }
         ]
     },
 
@@ -3645,7 +3645,7 @@ const scenes = {
 
     kitchenPantry: {
         name: "Köket - Pantry",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Pantry_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Pantry_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchenDoor", label: "Tillbaka" },
             { x: 29.6, y: 0.1, w: 30, h: 8, target: "kitchenPantryTopShelf", cursor: "over", label: "Högsta hyllan" },
@@ -3657,16 +3657,16 @@ const scenes = {
 
     kitchenPantryTopShelf: {
         name: "Köket - Pantry - Högsta hyllan",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Pantry_TopShelf_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Pantry_TopShelf_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchenPantry", label: "Tillbaka" },
-            { x: 58.5, y: 43.9, w: 14.7, h: 25.6, item: "liquor43", icon: "assets/interactables/Kitchen/bottle_43.png", decorative: true, label: "Likör 43" }
+            { x: 58.5, y: 43.9, w: 14.7, h: 25.6, item: "liquor43", icon: "assets/interactables/Kitchen/bottle_43.webp", decorative: true, label: "Likör 43" }
         ]
     },
 
     kitchenPantryShelf: {
         name: "Köket - Pantry - Mittenhyllan",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Pantry_Shelf_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Pantry_Shelf_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchenPantry", label: "Tillbaka" },
             { x: 39.5, y: 58.7, w: 22.9, h: 25.7, special: "cheeseWheel", label: "Ost" }
@@ -3683,16 +3683,16 @@ const scenes = {
                 kitchenState.trapState === "ratTail" &&
                 !pickedUpItems.has("ratTail")
             ) {
-                return folder + "WH_VIEW_KITCHEN_pantry_floor_rattail_MASTER_v01.png";
+                return folder + "WH_VIEW_KITCHEN_pantry_floor_rattail_MASTER_v01.webp";
             }
 
             // Laddad råttfälla placerad framför hålet
             if (kitchenState.trapState === "cheese") {
-                return folder + "WH_VIEW_KITCHEN_pantry_floor_Mousetrap_MASTER_v01.png";
+                return folder + "WH_VIEW_KITCHEN_pantry_floor_Mousetrap_MASTER_v01.webp";
             }
 
             // Ingen fälla, inklusive efter att råttsvansen plockats upp
-            return folder + "WH_VIEW_KITCHEN_pantry_floor_MASTER_v01.png";
+            return folder + "WH_VIEW_KITCHEN_pantry_floor_MASTER_v01.webp";
         },
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchenPantry", label: "Tillbaka" },
@@ -3702,7 +3702,7 @@ const scenes = {
 
     kitchenDrawersClosed: {
         name: "Köket - Lådor",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Drawers_closed_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Drawers_closed_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchenDoor", label: "Tillbaka" },
             { x: 30, y: 40, w: 40, h: 30, target: "kitchenDrawersOpen", label: "Öppna lådan" }
@@ -3711,31 +3711,31 @@ const scenes = {
 
     kitchenDrawersOpen: {
         name: "Köket - Lådor (öppna)",
-        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Drawes_open_MASTER_v01.png",
+        image: "assets/environments/kitchen/WH_VIEW_KITCHEN_Drawes_open_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchenDoor", label: "Tillbaka" },
             { x: 0.4, y: 1.3, w: 12.8, h: 67.2, target: "kitchenPantry", label: "Skafferi" },
-            { x: 40, y: 40, w: 16, h: 20, item: "ratTrap", icon: "assets/interactables/Kitchen/mousetrap.png", label: "Råttfälla" }
+            { x: 40, y: 40, w: 16, h: 20, item: "ratTrap", icon: "assets/interactables/Kitchen/mousetrap.webp", label: "Råttfälla" }
         ]
     },
 
     toilet: {
         name: "Toaletten",
-        image: "assets/environments/toilet/WH_ENV_BATHROOM_MASTER_v01.png",
+        image: "assets/environments/toilet/WH_ENV_BATHROOM_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "hall", label: "Tillbaka till hallen" },
             { x: 40, y: 62, w: 17.2, h: 18.5, target: "toiletCubbie", label: "Skåp" },
-            { x: 44.2, y: 47.2, w: 9.4, h: 9, item: "homebrewBook", icon: "assets/interactables/Toilet/book2.png", label: "Hembränning för Husbehov" },
-            { x: 16.3, y: 0.3, w: 73.5, h: 60.4, special: "toiletSpray", icon: "assets/interactables/Toilet/haze.png", requiresState: () => !hallState.scentSprayed, label: "Spraya med doftspray" },
-            { x: 58.2, y: 79.65, w: 39.4, h: 38.1, special: "lookFlavor", icon: "assets/interactables/Toilet/corpse.png", cursor: "look", flavorText: "En till av babas exmakar", label: "En kropp på golvet" }
+            { x: 44.2, y: 47.2, w: 9.4, h: 9, item: "homebrewBook", icon: "assets/interactables/Toilet/book2.webp", label: "Hembränning för Husbehov" },
+            { x: 16.3, y: 0.3, w: 73.5, h: 60.4, special: "toiletSpray", icon: "assets/interactables/Toilet/haze.webp", requiresState: () => !hallState.scentSprayed, label: "Spraya med doftspray" },
+            { x: 58.2, y: 79.65, w: 39.4, h: 38.1, special: "lookFlavor", icon: "assets/interactables/Toilet/corpse.webp", cursor: "look", flavorText: "En till av babas exmakar", label: "En kropp på golvet" }
         ]
     },
 
     toiletCubbie: {
         name: "Toaletten - Skåpet",
         image: () => pickedUpItems.has("scentSpray")
-            ? "assets/environments/toilet/WH_ENV_BATHROOM_Cubbie_v02.png"
-            : "assets/environments/toilet/WH_ENV_BATHROOM_Cubbie_v01.png",
+            ? "assets/environments/toilet/WH_ENV_BATHROOM_Cubbie_v02.webp"
+            : "assets/environments/toilet/WH_ENV_BATHROOM_Cubbie_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "toilet", label: "Tillbaka" },
             { x: 35, y: 30, w: 30, h: 40, item: "scentSpray", label: "Ta doftspray" }
@@ -3744,7 +3744,7 @@ const scenes = {
 
     upperHallway: {
         name: "Övre hallen",
-        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_MASTER_v01.png",
+        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "hall", label: "Trappa ner" },
 
@@ -3773,17 +3773,17 @@ const scenes = {
 
     upperHallwayGallery: {
         name: "Övre hallen - Galleriet",
-        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_Gallery_MASTER_v01.png",
+        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_Gallery_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "upperHallway", label: "Tillbaka" },
-            { x: 14.3, y: 47.4, w: 10, h: 15, item: "record02", icon: "assets/interactables/Lounge/WH_AST_Record02_v04.png", label: "Skiva" },
+            { x: 14.3, y: 47.4, w: 10, h: 15, item: "record02", icon: "assets/interactables/Lounge/WH_AST_Record02_v04.webp", label: "Skiva" },
             { x: 42, y: 18, w: 16, h: 37, target: "upperHallwayTowerStairs1", label: "Torntrappan" }
         ]
     },
 
     upperHallwayTowerStairs1: {
         name: "Torntrappan - Nedre delen",
-        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_TowerStairs1_MASTER_v01.png",
+        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_TowerStairs1_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "upperHallwayGallery", label: "Tillbaka" },
             { x: 45, y: 43, w: 28, h: 43, target: "upperHallwayTowerStairs2", label: "Uppför trappan" }
@@ -3792,7 +3792,7 @@ const scenes = {
 
     upperHallwayTowerStairs2: {
         name: "Torntrappan - Övre delen",
-        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_TowerStairs2_MASTER_v01.png",
+        image: "assets/environments/upper hallway/WH_ENV_Upperhallway_TowerStairs2_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "upperHallwayTowerStairs1", label: "Tillbaka" },
             {
@@ -3812,10 +3812,10 @@ const scenes = {
     lounge: {
         name: "Loungen",
         image: () => loungeState.builderDead
-            ? "assets/environments/lounge/WH_ENV_LOUNGE_MASTER_v03.png"
+            ? "assets/environments/lounge/WH_ENV_LOUNGE_MASTER_v03.webp"
             : loungeState.builderRevived
-                ? "assets/environments/lounge/WH_ENV_LOUNGE_MASTER_v02.png"
-                : "assets/environments/lounge/WH_ENV_LOUNGE_MASTER_v01.png",
+                ? "assets/environments/lounge/WH_ENV_LOUNGE_MASTER_v02.webp"
+                : "assets/environments/lounge/WH_ENV_LOUNGE_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "upperHallway", label: "Tillbaka" },
             { x: 38.3, y: 38.8, w: 22.7, h: 27.7, target: "loungeTV", label: "TV, soffa och soffbord" },
@@ -3833,10 +3833,10 @@ const scenes = {
 
     loungeRight: {
         name: "Loungen - Högra sidan",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Right_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Right_MASTER_v01.webp",
         hotspots: [
             { x: 22.8, y: 88.1, w: 47.9, h: 11.4, target: "lounge", label: "Tillbaka" },
-            { x: 34.8, y: 48.2, w: 15, h: 29.1, item: "albumCover03", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover03_v02.png", label: "Albumomslag" },
+            { x: 34.8, y: 48.2, w: 15, h: 29.1, item: "albumCover03", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover03_v02.webp", label: "Albumomslag" },
             { x: 13.8, y: 32.1, w: 16.9, h: 14.2, special: "lookFlavor", flavorText: "Det finns inte tid för det nu", label: "..." },
             { x: 14, y: 85, w: 17.5, h: 14.7, special: "lookFlavor", flavorText: "Det finns inte tid för det nu", label: "..." }
         ]
@@ -3844,29 +3844,29 @@ const scenes = {
 
     loungeTV: {
         name: "Loungen - TV-området",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_TV_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_TV_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
             { x: 64.6, y: 50, w: 10.4, h: 16.9, target: "loungeSofaCushions", requiresState: () => !pickedUpItems.has("remote"), label: "Titta mellan dynorna" },
             { x: 19.6, y: 58.1, w: 48, h: 32.4, target: "loungeSofaSeated", cursor: "remote", requiresState: () => playerHasRole("watcher"), label: "Sätt dig i soffan" },
             { x: 7.3, y: 31.2, w: 22.7, h: 23.7, item: "albumCover01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v02.PNG", label: "Albumomslag" },
-            { x: 49.1, y: 0.8, w: 5.2, h: 6.9, item: "battery01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery01_v01.png", label: "Batteri" },
+            { x: 49.1, y: 0.8, w: 5.2, h: 6.9, item: "battery01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery01_v01.webp", label: "Batteri" },
             { x: 88, y: 26, w: 11, h: 34, target: "loungeBehindTV", requiresState: () => playerHasRole("builder"), label: "Gå bakom TV:n" }
         ]
     },
 
     loungeSofaCushions: {
         name: "Loungen - Mellan soffdynorna",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Sofa_Cushions_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Sofa_Cushions_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "loungeTV", label: "Tillbaka" },
-            { x: 43.2, y: 34.8, w: 23.6, h: 43, item: "remote", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Remote_v01.png", label: "Fjärrkontroll" }
+            { x: 43.2, y: 34.8, w: 23.6, h: 43, item: "remote", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Remote_v01.webp", label: "Fjärrkontroll" }
         ]
     },
 
     loungeSofaSeated: {
         name: "Loungen - Sittande i soffan",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Sofa_Seated_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Sofa_Seated_MASTER_v01.webp",
         hotspots: [
             {
                 x: 31.3,
@@ -3903,7 +3903,7 @@ const scenes = {
                 y: 43.4,
                 w: 24.5,
                 h: 53.6,
-                icon: "assets/ui/WH_UI_Remote.png",
+                icon: "assets/ui/WH_UI_Remote.webp",
                 decorative: true,
                 label: "Fjärrkontroll"
             },
@@ -3939,10 +3939,10 @@ const scenes = {
 
     loungeAlbums: {
         name: "Loungen - Albumhyllan",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Albums_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Albums_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
-            { ...LOUNGE_ALBUM_SLOT_POSITIONS[8], item: "albumCover02", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover02_v01.png", requiresState: () => !pickedUpItems.has("albumCover02"), label: "Albumomslag" },
+            { ...LOUNGE_ALBUM_SLOT_POSITIONS[8], item: "albumCover02", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover02_v01.webp", requiresState: () => !pickedUpItems.has("albumCover02"), label: "Albumomslag" },
             ...Object.entries(LOUNGE_ALBUM_SLOT_POSITIONS).map(([slot, position]) => ({
                 ...position,
                 special: "loungeAlbumSlot",
@@ -3955,7 +3955,7 @@ const scenes = {
 
     loungeListeningChair: {
         name: "Loungen - Fåtöljen",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_ListeningChair_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_ListeningChair_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
             { x: 0.4, y: 17.7, w: 14.8, h: 62.1, target: "loungeBehindTV", label: "Titta bakom TV:n" },
@@ -3966,23 +3966,23 @@ const scenes = {
 
     loungeListeningChairListening: {
         name: "Loungen - Lyssnar i fåtöljen",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_ListeningChair_Listening_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_ListeningChair_Listening_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, special: "loungeStandListener", label: "Res dig" },
             { x: 7, y: 2.7, w: 18.8, h: 41.7, target: "loungeRight", label: "Titta åt höger" },
-            { x: 43, y: 32.2, w: 28.5, h: 45.4, special: "loungeCloseEyes", icon: "assets/ui/WH_UI_Close_eyes.png", requiresState: () => playerHasRole("listener") && loungeState.listenerSeatedBy === playerState.id && loungeState.playingRecord, label: "Blunda" }
+            { x: 43, y: 32.2, w: 28.5, h: 45.4, special: "loungeCloseEyes", icon: "assets/ui/WH_UI_Close_eyes.webp", requiresState: () => playerHasRole("listener") && loungeState.listenerSeatedBy === playerState.id && loungeState.playingRecord, label: "Blunda" }
         ]
     },
 
     loungeRecordPlayer: {
         name: "Loungen - Skivspelaren",
         image: () => loungeState.recordOnPlayer && !loungeState.powerCut
-            ? `assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_Plugged_Record${String(LOUNGE_RECORDS[loungeState.recordOnPlayer]?.number || 1).padStart(2, "0")}_v01.png`
+            ? `assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_Plugged_Record${String(LOUNGE_RECORDS[loungeState.recordOnPlayer]?.number || 1).padStart(2, "0")}_v01.webp`
             : loungeState.listenerSeatedBy
-                ? "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_Plugged_MASTER_v01.png"
+                ? "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_Plugged_MASTER_v01.webp"
             : loungeState.powerCut
-                ? "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_MASTER_v01.png"
-                : "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_MASTER_v01.png",
+                ? "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_MASTER_v01.webp"
+                : "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_MASTER_v01.webp",
         hotspots: [
             { x: 28.4, y: 86.2, w: 43.3, h: 13.6, target: "lounge", label: "Tillbaka" },
             { x: 72.2, y: 59, w: 24.1, h: 35.3, special: "loungeDumpspot", label: "Lägg skiva eller fodral bredvid spelaren" },
@@ -3995,7 +3995,7 @@ const scenes = {
 
     loungeRecordPlayerDumpspot: {
         name: "Loungen - Skivspelarens avlastningsyta",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_Dumpspot_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_RecordPlayer_Dumpspot_v01.webp",
         hotspots: [
             {
                 x: 31.3,
@@ -4019,21 +4019,21 @@ const scenes = {
     loungeBehindTV: {
         name: "Loungen - Bakom TV:n",
         image: () => loungeState.tvPluggedIn
-            ? "assets/environments/lounge/WH_VIEW_LOUNGE_Behind_TV_Plugged_Inv_01.png"
-            : "assets/environments/lounge/WH_VIEW_LOUNGE_Behind_TV_Unplugged_v01.png",
+            ? "assets/environments/lounge/WH_VIEW_LOUNGE_Behind_TV_Plugged_Inv_01.webp"
+            : "assets/environments/lounge/WH_VIEW_LOUNGE_Behind_TV_Unplugged_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
             { x: 60, y: 40.2, w: 28.3, h: 34.7, special: "plugInTV", label: "Koppla in TV:n" },
-            { x: 58.7, y: 36.5, w: 37.3, h: 62.6, item: "record01", icon: "assets/interactables/Lounge/WH_AST_Record01_v03.png", label: "Skiva" }
+            { x: 58.7, y: 36.5, w: 37.3, h: 62.6, item: "record01", icon: "assets/interactables/Lounge/WH_AST_Record01_v03.webp", label: "Skiva" }
         ]
     },
 
     loungeBody: {
         name: "Loungen - Byggarens kropp",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Body_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Body_MASTER_v01.webp",
         hotspots: () => [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
-            { x: 54, y: 51, w: 15, h: 17, special: "loungeBodyKeyring", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_v01.png", requiresState: () => loungeState.bodyKeyringAvailable && playerState.id !== loungeState.builderDeadId, label: "Nyckelknippa" },
+            { x: 54, y: 51, w: 15, h: 17, special: "loungeBodyKeyring", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_v01.webp", requiresState: () => loungeState.bodyKeyringAvailable && playerState.id !== loungeState.builderDeadId, label: "Nyckelknippa" },
             ...loungeState.bodyInventory.filter(item => !KEY_ITEMS.has(item)).map((item, index) => ({
                 x: index === 0 ? 35 : 72, y: 67, w: 12, h: 18,
                 special: "loungeBodyItem", bodyItem: item,
@@ -4048,8 +4048,8 @@ const scenes = {
     loungeElectricalCabinet: {
         name: "Loungen - Elskåpet",
         image: () => loungeState.cabinetOpen
-            ? "assets/environments/lounge/WH_VIEW_LOUNGE_ElectricalCabinet_Open_MASTER_v01.png"
-            : "assets/environments/lounge/WH_VIEW_LOUNGE_ElectricalCabinet_MASTER_v01.png",
+            ? "assets/environments/lounge/WH_VIEW_LOUNGE_ElectricalCabinet_Open_MASTER_v01.webp"
+            : "assets/environments/lounge/WH_VIEW_LOUNGE_ElectricalCabinet_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
             { x: 31.4, y: 8.3, w: 20.6, h: 62.8, corners: { tl: [31.4, 8.3], tr: [52, 16.4], bl: [31.4, 71.1], br: [52, 69.7] }, ...KIRKE_PORTRAIT_HOTSPOT },
@@ -4062,55 +4062,55 @@ const scenes = {
     loungeHamsterWheel: {
         name: "Loungen - Hamsterhjulet",
         image: () => loungeState.builderDead || loungeState.builderRevived || !loungeState.puzzleSolved
-            ? "assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_MASTER_v01.png"
-            : "assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_Sleeping_v01.png",
+            ? "assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_MASTER_v01.webp"
+            : "assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_Sleeping_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "loungeElectricalCabinet", label: "Tillbaka" },
-            { x: 33, y: 12, w: 19.1, h: 29.5, special: "readNote", noteImage: "assets/ui/WH_UI_Kassnote.png", icon: "assets/interactables/Lounge/kass_note.png", label: "Kassandras lapp" },
-            { x: 54.2, y: 18.9, w: 11.7, h: 27.6, special: "loungeHamsterKey", requiresState: () => loungeState.puzzleSolved && !loungeState.builderDead && !loungeState.builderRevived, icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Seance_Key_v01.png", label: "Nyckel bredvid hamsterhjulet" },
-            { x: 50.6, y: 69.6, w: 20, h: 24.2, decorative: true, icon: "assets/interactables/Lounge/WH_AST_Hamster_Dead_v01.png", requiresState: () => loungeState.builderDead || loungeState.builderRevived, label: "Död hamster" }
+            { x: 33, y: 12, w: 19.1, h: 29.5, special: "readNote", noteImage: "assets/ui/WH_UI_Kassnote.webp", icon: "assets/interactables/Lounge/kass_note.webp", label: "Kassandras lapp" },
+            { x: 54.2, y: 18.9, w: 11.7, h: 27.6, special: "loungeHamsterKey", requiresState: () => loungeState.puzzleSolved && !loungeState.builderDead && !loungeState.builderRevived, icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Seance_Key_v01.webp", label: "Nyckel bredvid hamsterhjulet" },
+            { x: 50.6, y: 69.6, w: 20, h: 24.2, decorative: true, icon: "assets/interactables/Lounge/WH_AST_Hamster_Dead_v01.webp", requiresState: () => loungeState.builderDead || loungeState.builderRevived, label: "Död hamster" }
         ]
     },
 
     loungeDesk: {
         name: "Loungen - Skrivbordet",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Desk_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_Desk_MASTER_v01.webp",
         hotspots: [
             { x: 28.9, y: 87.1, w: 39.2, h: 12.7, target: "lounge", label: "Tillbaka" },
             { x: 80.7, y: 3.6, w: 15.9, h: 37.3, ...KIRKE_PORTRAIT_HOTSPOT },
             { x: 80.8, y: 3.2, w: 16, h: 37.7, target: "loungeElectricalCabinet", label: "Elskåp" },
             { x: 5.9, y: 86, w: 21.3, h: 13.2, target: "loungeDeskDrawerLeft", label: "Öppna vänster skrivbordslåda" },
             { x: 68.5, y: 86.4, w: 27.6, h: 13, target: "loungeDeskDrawerRight", label: "Öppna höger skrivbordslåda" },
-            { x: 1.9, y: 30.2, w: 15.9, h: 50.6, item: "record03", icon: "assets/interactables/Lounge/WH_AST_Record03_v03.png", label: "Skiva" },
+            { x: 1.9, y: 30.2, w: 15.9, h: 50.6, item: "record03", icon: "assets/interactables/Lounge/WH_AST_Record03_v03.webp", label: "Skiva" },
             { x: 17, y: 42, w: 63, h: 38, special: "itemSurface", surfaceId: "loungeDesk", label: "Lägg ifrån dig föremål" }
         ]
     },
 
     loungeDeskDrawerLeft: {
         name: "Loungen - Vänster skrivbordslåda",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_DeskDrawerLeft_Open_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_DeskDrawerLeft_Open_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", cursor: "back", label: "Tillbaka" },
             { x: 68.2, y: 0.4, w: 31.2, h: 29.5, target: "loungeDesk", cursor: "up", label: "Skrivbord" },
             { x: 79.9, y: 34.3, w: 20.1, h: 30.9, target: "loungeDeskDrawerRight", cursor: "right", label: "Öppna höger skrivbordslåda" },
-            { x: 44.9, y: 59.3, w: 11.1, h: 12.7, item: "battery02", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery02_v01.png", label: "Batteri" }
+            { x: 44.9, y: 59.3, w: 11.1, h: 12.7, item: "battery02", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery02_v01.webp", label: "Batteri" }
         ]
     },
 
     loungeDeskDrawerRight: {
         name: "Loungen - Höger skrivbordslåda",
-        image: "assets/environments/lounge/WH_VIEW_LOUNGE_DeskDrawerRight_Open_MASTER_v01.png",
+        image: "assets/environments/lounge/WH_VIEW_LOUNGE_DeskDrawerRight_Open_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", cursor: "back", label: "Tillbaka" },
             { x: 5.3, y: 6.7, w: 44.2, h: 34.1, target: "loungeDesk", cursor: "up", label: "Skrivbord" },
             { x: 0.2, y: 50.9, w: 20, h: 28.3, target: "loungeDeskDrawerLeft", cursor: "left", label: "Öppna vänster skrivbordslåda" },
-            { x: 48.6, y: 41, w: 28.3, h: 32.3, item: "headphones", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Headphones_v01.png", requiresState: () => !loungeState.roles.listener, label: "Hörlurar" }
+            { x: 48.6, y: 41, w: 28.3, h: 32.3, item: "headphones", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Headphones_v01.webp", requiresState: () => !loungeState.roles.listener, label: "Hörlurar" }
         ]
     },
 
     seanceRoom: {
         name: "Seansrummet",
-        image: "assets/environments/seanceroom/WH_ENV_SEANCE_MASTER_v01.png",
+        image: "assets/environments/seanceroom/WH_ENV_SEANCE_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "upperHallwayTowerStairs2", label: "Tillbaka" },
             {
@@ -4155,7 +4155,7 @@ const scenes = {
 
     seanceCrystalBall: {
         name: "Seansrummet - Kristallkula",
-        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_CrystalBall_MASTER_v01.png",
+        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_CrystalBall_MASTER_v01.webp",
 
         hotspots: [
             {
@@ -4180,7 +4180,7 @@ const scenes = {
 
     seanceOuijaBoard: {
         name: "Seansrummet - Ouija-bräde",
-        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_OuijaBoard_MASTER_v01.png",
+        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_OuijaBoard_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "seanceRoom", label: "Tillbaka" },
             { x: 35.4, y: 69, w: 41.7, h: 24.6, special: "seanceOuijaOverlay", label: "Titta på ouija-brädet" }
@@ -4189,7 +4189,7 @@ const scenes = {
 
     seancePortraits: {
         name: "Seansrummet - Porträtt",
-        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_Portraits_MASTER_v01.png",
+        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_Portraits_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "seanceRoom", label: "Tillbaka" },
             { x: 22, y: 0.4, w: 55.3, h: 55.4, special: "lookFlavor", flavorText: "så högt når jag inte", label: "..." }
@@ -4198,7 +4198,7 @@ const scenes = {
 
     seanceRoom_floor: {
         name: "Seansrummet - Golvet",
-        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_Floor_MASTER_v01.png",
+        image: "assets/environments/seanceroom/WH_VIEW_SEANCE_Floor_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "seanceRoom", label: "Tillbaka" },
             {
@@ -4207,7 +4207,7 @@ const scenes = {
                 w: 28,
                 h: 48,
                 item: "portraitKassandra",
-                icon: "assets/interactables/Seance/WH_AST_Portrait_Kassandra_Fallen_v01.png",
+                icon: "assets/interactables/Seance/WH_AST_Portrait_Kassandra_Fallen_v01.webp",
                 requiresState: () => loungeState.seancePortraitFallen,
                 label: "Porträtt: Kassandra"
             }
@@ -4771,14 +4771,14 @@ sessionStorage.setItem("wh_listenerSession", listenerSessionToken);
 function getLoungeChannelImage() {
     const channelNumber = String(loungeState.currentChannel || 1).padStart(2, "0");
 
-    return `assets/interactables/Lounge/WH_AST_LOUNGE_TV_Screen_Channel${channelNumber}_v01.png`;
+    return `assets/interactables/Lounge/WH_AST_LOUNGE_TV_Screen_Channel${channelNumber}_v01.webp`;
 }
 
 const LOUNGE_ROLE_CONFIG = {
-    listener: { item: "headphones", title: "Tolk", card: "assets/ui/WH_UI_Role_Listener.png" },
-    watcher: { item: "remote", title: "Tittare", card: "assets/ui/WH_UI_Role_Watcher.png" },
-    builder: { item: "kitchenDoorKey", title: "Byggare", card: "assets/ui/WH_UI_Role_Builder.png" },
-    messenger: { item: "messengerBag", title: "Budbärare", card: "assets/ui/WH_UI_Role_Messenger.png" }
+    listener: { item: "headphones", title: "Tolk", card: "assets/ui/WH_UI_Role_Listener.webp" },
+    watcher: { item: "remote", title: "Tittare", card: "assets/ui/WH_UI_Role_Watcher.webp" },
+    builder: { item: "kitchenDoorKey", title: "Byggare", card: "assets/ui/WH_UI_Role_Builder.webp" },
+    messenger: { item: "messengerBag", title: "Budbärare", card: "assets/ui/WH_UI_Role_Messenger.webp" }
 };
 
 function isFourPlayerGame() {
@@ -5244,7 +5244,7 @@ function runBuilderShockSequence(isBuilder, builderName, isMessengerSpirit = fal
     clearBuilderShockSequence();
     hamsterSnoreAudioEl.pause();
     builderShockOverlayEl.classList.add("visible");
-    builderShockImageEl.style.backgroundImage = 'url("assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_Alarmed_v01.png")';
+    builderShockImageEl.style.backgroundImage = 'url("assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_Alarmed_v01.webp")';
     builderShockImageEl.classList.add("shaking");
 
     const startRunning = () => {
@@ -5259,7 +5259,7 @@ function runBuilderShockSequence(isBuilder, builderName, isMessengerSpirit = fal
         let frame = 0;
         const frameTimer = setInterval(() => {
             frame += 1;
-            builderShockImageEl.style.backgroundImage = `url("assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_Running${frame % 2 === 1 ? 1 : 2}_v01.png")`;
+            builderShockImageEl.style.backgroundImage = `url("assets/environments/lounge/WH_VIEW_LOUNGE_HamsterWheel_Running${frame % 2 === 1 ? 1 : 2}_v01.webp")`;
             if (frame >= 10) {
                 clearInterval(frameTimer);
                 hamsterChargeAudioEl.pause();
@@ -5582,27 +5582,27 @@ function normalizePlayerInventoryCapacity() {
     saveWorldState();
 }
 
-const RAVEN_UNFED_IMAGE = "assets/environments/kitchen/WH_ENV_KITCHEN_Raven_unfed_MASTER_v02.png";
-const RAVEN_FED_IMAGE = "assets/environments/kitchen/WH_ENV_KITCHEN_Raven_MASTER_v02.png";
+const RAVEN_UNFED_IMAGE = "assets/environments/kitchen/WH_ENV_KITCHEN_Raven_unfed_MASTER_v02.webp";
+const RAVEN_FED_IMAGE = "assets/environments/kitchen/WH_ENV_KITCHEN_Raven_MASTER_v02.webp";
 
-const MORTAR_EMPTY_ICON = "assets/interactables/Kitchen/mortar_empty.png";
-const MORTAR_FILLED_ICON = "assets/interactables/Kitchen/mortar_silver_powder.png";
-const CHEESE_WHEEL_ICON = "assets/interactables/Kitchen/cheese_wheel.png";
-const CHEESE_BITTEN_ICON = "assets/interactables/Kitchen/cheese_wheel_bitten.png";
-const MOUSETRAP_RATTAIL_ICON = "assets/interactables/Kitchen/mousetrap_rat_tail.png";
-const SAFE_CLOSED_ICON = "assets/interactables/Kitchen/safe_closed.png";
-const SAFE_OPEN_ICON = "assets/interactables/Kitchen/safe_open.png";
+const MORTAR_EMPTY_ICON = "assets/interactables/Kitchen/mortar_empty.webp";
+const MORTAR_FILLED_ICON = "assets/interactables/Kitchen/mortar_silver_powder.webp";
+const CHEESE_WHEEL_ICON = "assets/interactables/Kitchen/cheese_wheel.webp";
+const CHEESE_BITTEN_ICON = "assets/interactables/Kitchen/cheese_wheel_bitten.webp";
+const MOUSETRAP_RATTAIL_ICON = "assets/interactables/Kitchen/mousetrap_rat_tail.webp";
+const SAFE_CLOSED_ICON = "assets/interactables/Kitchen/safe_closed.webp";
+const SAFE_OPEN_ICON = "assets/interactables/Kitchen/safe_open.webp";
 const SAFE_CLOSED_SIZE = { w: 405, h: 551 };
 const SAFE_OPEN_SIZE = { w: 466, h: 551 };
-const HOOK_WITH_KEY_ICON = "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_OnHook_v01.png";
-const HOOK_EMPTY_ICON = "assets/interactables/Exterior/WH_AST_HOOK_Empty_v01.png";
+const HOOK_WITH_KEY_ICON = "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_OnHook_v01.webp";
+const HOOK_EMPTY_ICON = "assets/interactables/Exterior/WH_AST_HOOK_Empty_v01.webp";
 
 // Nycklarna visas som en enda nyckelknippa i inventory som byter bild allteftersom fler nycklar samlas
 const KEY_PROGRESSION = [
-    { item: "kitchenDoorKey", icon: "assets/interactables/Exterior/WH_AST_KEY_Kitchen_CastIron_v01.png" },
-    { item: "labKey", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_v01.png" },
-    { item: "seanceKey", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_v01.png" },
-    { item: "toiletKey", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_Toilet_v01.png" }
+    { item: "kitchenDoorKey", icon: "assets/interactables/Exterior/WH_AST_KEY_Kitchen_CastIron_v01.webp" },
+    { item: "labKey", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_v01.webp" },
+    { item: "seanceKey", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_v01.webp" },
+    { item: "toiletKey", icon: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_Toilet_v01.webp" }
 ];
 const KEY_ITEMS = new Set(KEY_PROGRESSION.map(k => k.item));
 
@@ -5656,17 +5656,17 @@ const LOUNGE_RECORDS = {
     record01: {
         number: 1,
         name: "Skiva",
-        icon: "assets/interactables/Lounge/WH_AST_Record01_v01.png"
+        icon: "assets/interactables/Lounge/WH_AST_Record01_v01.webp"
     },
     record02: {
         number: 2,
         name: "Skiva",
-        icon: "assets/interactables/Lounge/WH_AST_Record02_v01.png"
+        icon: "assets/interactables/Lounge/WH_AST_Record02_v01.webp"
     },
     record03: {
         number: 3,
         name: "Skiva",
-        icon: "assets/interactables/Lounge/WH_AST_Record03_v01.png"
+        icon: "assets/interactables/Lounge/WH_AST_Record03_v01.webp"
     }
 };
 
@@ -5674,36 +5674,36 @@ const LOUNGE_COVERS = {
     albumCover01: {
         number: 1,
         name: "Albumomslag",
-        icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v01.png"
+        icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v01.webp"
     },
     albumCover02: {
         number: 2,
         name: "Albumomslag",
-        icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover02_v01.png"
+        icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover02_v01.webp"
     },
     albumCover03: {
         number: 3,
         name: "Albumomslag",
-        icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover03_v01.png"
+        icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover03_v01.webp"
     }
 };
 
 const LOUNGE_SONGS = {
     record01: {
         audioIndex: 0,
-        clue: "assets/interactables/Lounge/WH_AST_LOUNGE_Eyes_closed1_v01.png",
+        clue: "assets/interactables/Lounge/WH_AST_LOUNGE_Eyes_closed1_v01.webp",
         albumSlot: 4,
         title: "Something in the Way"
     },
     record02: {
         audioIndex: 1,
-        clue: "assets/interactables/Lounge/WH_AST_LOUNGE_Eyes_closed2_v01.png",
+        clue: "assets/interactables/Lounge/WH_AST_LOUNGE_Eyes_closed2_v01.webp",
         albumSlot: 13,
         title: "listen before i go"
     },
     record03: {
         audioIndex: 2,
-        clue: "assets/interactables/Lounge/WH_AST_LOUNGE_Eyes_closed3_v01.png",
+        clue: "assets/interactables/Lounge/WH_AST_LOUNGE_Eyes_closed3_v01.webp",
         albumSlot: 19,
         title: "Black Sabbath"
     }
@@ -5889,46 +5889,46 @@ function parseAlbumSetId(item) {
 }
 
 const itemIcons = {
-    ratTrap: "assets/interactables/Kitchen/mousetrap.png",
-    frogBrain: "assets/interactables/Kitchen/brain_jar.png",
-    liquor43: "assets/interactables/Kitchen/bottle_43.png",
-    emptyBottle: "assets/interactables/Kitchen/empty_bottle.png",
-    bellows: "assets/interactables/Kitchen/bellows.png",
-    purplePotion: "assets/interactables/Kitchen/purple_potion.png",
-    notebook: "assets/interactables/Kitchen/notebook.png",
-    crowFeather: "assets/interactables/Kitchen/raven_feather.png",
-    tarotMoon: "assets/interactables/Kitchen/tarot_the_moon.png",
-    tarotDeath: "assets/interactables/Kitchen/tarot_death.png",
-    tarotJustice: "assets/interactables/Kitchen/tarot_justice.png",
-    tarotFool: "assets/interactables/Kitchen/tarot_the_fool.png",
-    tarotHermit: "assets/interactables/Kitchen/tarot_the_hermit.png",
-    tarotStrength: "assets/interactables/Kitchen/tarot_strenght.png",
-    cheeseWedge: "assets/interactables/Kitchen/cheese_wedge.png",
-    ratTail: "assets/interactables/Kitchen/rat_tail.png",
-    loadedTrap: "assets/interactables/Kitchen/mousetrap_cheese.png",
-    moonDust: "assets/interactables/Kitchen/moondust.png",
-    portraitBabaYaga: "assets/interactables/Kitchen/portrait_baba_yaga.png",
-    portraitKirke: "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_Stressed_v01.png",
+    ratTrap: "assets/interactables/Kitchen/mousetrap.webp",
+    frogBrain: "assets/interactables/Kitchen/brain_jar.webp",
+    liquor43: "assets/interactables/Kitchen/bottle_43.webp",
+    emptyBottle: "assets/interactables/Kitchen/empty_bottle.webp",
+    bellows: "assets/interactables/Kitchen/bellows.webp",
+    purplePotion: "assets/interactables/Kitchen/purple_potion.webp",
+    notebook: "assets/interactables/Kitchen/notebook.webp",
+    crowFeather: "assets/interactables/Kitchen/raven_feather.webp",
+    tarotMoon: "assets/interactables/Kitchen/tarot_the_moon.webp",
+    tarotDeath: "assets/interactables/Kitchen/tarot_death.webp",
+    tarotJustice: "assets/interactables/Kitchen/tarot_justice.webp",
+    tarotFool: "assets/interactables/Kitchen/tarot_the_fool.webp",
+    tarotHermit: "assets/interactables/Kitchen/tarot_the_hermit.webp",
+    tarotStrength: "assets/interactables/Kitchen/tarot_strenght.webp",
+    cheeseWedge: "assets/interactables/Kitchen/cheese_wedge.webp",
+    ratTail: "assets/interactables/Kitchen/rat_tail.webp",
+    loadedTrap: "assets/interactables/Kitchen/mousetrap_cheese.webp",
+    moonDust: "assets/interactables/Kitchen/moondust.webp",
+    portraitBabaYaga: "assets/interactables/Kitchen/portrait_baba_yaga.webp",
+    portraitKirke: "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_Stressed_v01.webp",
     portraitKassandra: "assets/interactables/Seance/WH_AST_Portrait_Kassandra_Fallen_v01.PNG",
-    labKey: "assets/interactables/Kitchen/gear_key.png",
-    kitchenDoorKey: "assets/interactables/Exterior/WH_AST_KEY_Kitchen_CastIron_v01.png",
-    record01: "assets/interactables/Lounge/WH_AST_Record01_v01.png",
-    record02: "assets/interactables/Lounge/WH_AST_Record02_v01.png",
-    record03: "assets/interactables/Lounge/WH_AST_Record03_v01.png",
-    albumCover01: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v01.png",
-    albumCover02: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover02_v01.png",
-    albumCover03: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover03_v01.png",
-    battery01: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery01_v01.png",
-    battery02: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery02_v01.png",
-    remote: "assets/interactables/Lounge/WH_AST_LOUNGE_Remote_v01.png",
-    headphones: "assets/interactables/Lounge/WH_AST_LOUNGE_Headphones_v01.png",
-    messengerBag: "assets/interactables/Exterior/WH_AST_BAG_v01.png",
-    seanceKey: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_v01.png",
-    portraitKirke: "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_Stressed_v01.png",
-    sledgehammer: "assets/interactables/Kitchen/sledgehammer.png",
-    scentSpray: "assets/interactables/Toilet/spray.png",
-    homebrewBook: "assets/interactables/Toilet/book.png",
-    spiritFlashlight: "assets/interactables/Spirit/WH_AST_Iventory_Flashlight_v01.png"
+    labKey: "assets/interactables/Kitchen/gear_key.webp",
+    kitchenDoorKey: "assets/interactables/Exterior/WH_AST_KEY_Kitchen_CastIron_v01.webp",
+    record01: "assets/interactables/Lounge/WH_AST_Record01_v01.webp",
+    record02: "assets/interactables/Lounge/WH_AST_Record02_v01.webp",
+    record03: "assets/interactables/Lounge/WH_AST_Record03_v01.webp",
+    albumCover01: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v01.webp",
+    albumCover02: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover02_v01.webp",
+    albumCover03: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover03_v01.webp",
+    battery01: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery01_v01.webp",
+    battery02: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery02_v01.webp",
+    remote: "assets/interactables/Lounge/WH_AST_LOUNGE_Remote_v01.webp",
+    headphones: "assets/interactables/Lounge/WH_AST_LOUNGE_Headphones_v01.webp",
+    messengerBag: "assets/interactables/Exterior/WH_AST_BAG_v01.webp",
+    seanceKey: "assets/interactables/Exterior/WH_AST_KEYRING_Kitchen_Lab_Observatory_v01.webp",
+    portraitKirke: "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_Stressed_v01.webp",
+    sledgehammer: "assets/interactables/Kitchen/sledgehammer.webp",
+    scentSpray: "assets/interactables/Toilet/spray.webp",
+    homebrewBook: "assets/interactables/Toilet/book.webp",
+    spiritFlashlight: "assets/interactables/Spirit/WH_AST_Iventory_Flashlight_v01.webp"
 };
 
 const sceneEl = document.getElementById("scene");
@@ -6366,7 +6366,7 @@ function startKassandraFallAfterBanish(showWhiteFade = false) {
         stage.className = "kassandra-fall-stage";
         stage.setAttribute("aria-hidden", "true");
         const portrait = document.createElement("img");
-        portrait.src = "assets/interactables/Seance/WH_AST_Portrait_Kassandra_Fallen_v01.png";
+        portrait.src = "assets/interactables/Seance/WH_AST_Portrait_Kassandra_Fallen_v01.webp";
         portrait.alt = "";
         stage.appendChild(portrait);
         sceneEl.appendChild(stage);
@@ -6695,14 +6695,14 @@ function updateInventory() {
     inventorySlotsEl.replaceChildren();
 
     const inventoryFrame = playerState.role === "builder"
-        ? "WH_UI_Inventory_Builder.png"
+        ? "WH_UI_Inventory_Builder.webp"
         : playerState.role === "messenger"
-            ? "WH_UI_Inventory_Messenger.png"
+            ? "WH_UI_Inventory_Messenger.webp"
         : playerState.role === "listener"
-            ? "WH_UI_Inventory_Iinterpreter.png"
+            ? "WH_UI_Inventory_Iinterpreter.webp"
             : playerState.role === "watcher"
-                ? "WH_UI_Inventory_Seer.png"
-                : "WH_UI_Inventory_Base.png";
+                ? "WH_UI_Inventory_Seer.webp"
+                : "WH_UI_Inventory_Base.webp";
     inventoryOpenImgEl.style.backgroundImage = `url("assets/ui/${inventoryFrame}")`;
     const isBuilder = playerHasRole("builder");
     inventorySlotsEl.classList.toggle("builder-inventory", isBuilder);
@@ -6715,7 +6715,7 @@ function updateInventory() {
     [...PORTRAIT_ITEMS].filter(item => pickedUpItems.has(item)).forEach(item => {
         const portrait = document.createElement("img");
         portrait.src = item === "portraitKirke" && loungeState.puzzleSolved
-            ? "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_happy_v01.png"
+            ? "assets/interactables/Lounge/WH_AST_LOUNGE_Kirke_Portait_happy_v01.webp"
             : itemIcons[item];
         portrait.alt = itemNames[item] || item;
         portrait.title = portrait.alt;
@@ -6937,7 +6937,7 @@ function openRecipeBook() {
 }
 
 const NOTE_TEXT_BY_IMAGE = {
-    "assets/ui/WH_UI_Doornote.png": `Hej!
+    "assets/ui/WH_UI_Doornote.webp": `Hej!
 
 Var tvungen att rusa iväg, grannens katt är borta och jag behöver ett alibi.
 Jag tänkte hämta boken åt er, men Baba läste de på dass när jag gick. Hon lovade att ta med den till köket när hon var klar.
@@ -6945,7 +6945,7 @@ Jag lämnar köksnyckeln här för säkerhets skull. Baba har glömt hur hennes 
 När ni har boken kommer transportportalen aktiveras i hallen, så slipper ni gå hem i mörkret.
 Puss puss
 // Kassandra`,
-    "assets/ui/WH_UI_BabaNote.png": `Hej.
+    "assets/ui/WH_UI_BabaNote.webp": `Hej.
 
 Boken är inte i köket.
 Jag glömde ta med den från toaletten.
@@ -6961,7 +6961,7 @@ Men kassaskåpet är borta. Jag skrev ju ned...
 Aja, gör min komma ihåg dryck så hittar ni den. Jag ska plocka kantareller.
 
 // Baba`,
-    "assets/ui/WH_UI_Kirknote.png": `Mormor,
+    "assets/ui/WH_UI_Kirknote.webp": `Mormor,
 
 Jag tog toanyckeln.
 Det är galenskap att ha den i ett låst kassaskåp, det är illa nog att behöva släpa dina gubbar av toastolen.
@@ -6970,7 +6970,7 @@ Jag hängde nyckeln i elskåpet uppe i loungen.
 
 Om nöd eller döden kallar, titta förbi. Jag lämnar min extranyckel här.
 // Kirke`,
-    "assets/ui/WH_UI_Kassnote.png": `Kirke,
+    "assets/ui/WH_UI_Kassnote.webp": `Kirke,
 
 Jag orkar inte stå och banka på din dörr i tio minuter varje gång Babas gubbar säckar ihop.
 
@@ -7661,12 +7661,12 @@ function applyQuadTransform(el, corners) {
 }
 
 const tarotFanCards = [
-    { id: "tarotDeath", title: "Döden", description: "Slutet på en väg och början på en annan. Förändring är oundviklig. Läbbigt.", image: "assets/interactables/Kitchen/tarot_death.png", rotation: -25 },
-    { id: "tarotJustice", title: "Rättvisan", description: "Sanningen väger tungt. Varje handling får sina följder. Typ som när du glömmer mjölken på ica.", image: "assets/interactables/Kitchen/tarot_justice.png", rotation: -15 },
-    { id: "tarotFool", title: "Narren", description: "Ett första steg ut i det okända. Mod eller dårskap, vem vet?", image: "assets/interactables/Kitchen/tarot_the_fool.png", rotation: -5 },
-    { id: "tarotHermit", title: "Eremiten", description: "Svaren finns inte alltid där ute. Ibland måste man söka inom sig. Om man behöver hjälp finns proktologer.", image: "assets/interactables/Kitchen/tarot_the_hermit.png", rotation: 5 },
-    { id: "tarotMoon", title: "Månen", description: "Skuggor, drömmar och dolda sanningar. Allt är inte som det verkar. Hade varit snygg som en tröja.", image: "assets/interactables/Kitchen/tarot_the_moon.png", rotation: 15 },
-    { id: "tarotStrength", title: "Styrkan", description: "Verklig styrka kommer inte från kraft, utan från vilja och tålamod. Som Goku.", image: "assets/interactables/Kitchen/tarot_strenght.png", rotation: 25 }
+    { id: "tarotDeath", title: "Döden", description: "Slutet på en väg och början på en annan. Förändring är oundviklig. Läbbigt.", image: "assets/interactables/Kitchen/tarot_death.webp", rotation: -25 },
+    { id: "tarotJustice", title: "Rättvisan", description: "Sanningen väger tungt. Varje handling får sina följder. Typ som när du glömmer mjölken på ica.", image: "assets/interactables/Kitchen/tarot_justice.webp", rotation: -15 },
+    { id: "tarotFool", title: "Narren", description: "Ett första steg ut i det okända. Mod eller dårskap, vem vet?", image: "assets/interactables/Kitchen/tarot_the_fool.webp", rotation: -5 },
+    { id: "tarotHermit", title: "Eremiten", description: "Svaren finns inte alltid där ute. Ibland måste man söka inom sig. Om man behöver hjälp finns proktologer.", image: "assets/interactables/Kitchen/tarot_the_hermit.webp", rotation: 5 },
+    { id: "tarotMoon", title: "Månen", description: "Skuggor, drömmar och dolda sanningar. Allt är inte som det verkar. Hade varit snygg som en tröja.", image: "assets/interactables/Kitchen/tarot_the_moon.webp", rotation: 15 },
+    { id: "tarotStrength", title: "Styrkan", description: "Verklig styrka kommer inte från kraft, utan från vilja och tålamod. Som Goku.", image: "assets/interactables/Kitchen/tarot_strenght.webp", rotation: 25 }
 ];
 
 let tarotCardInspected = null;
@@ -8036,7 +8036,7 @@ async function playSpiritSequence(frames, options = {}) {
         : null;
     const heldFollowerImage = heldFollowerFrame ? new Image() : null;
     if (heldFollowerImage) {
-        heldFollowerImage.src = "assets/interactables/Spirit/WH_AST_Follower.png";
+        heldFollowerImage.src = "assets/interactables/Spirit/WH_AST_Follower.webp";
         heldFollowerImage.alt = "";
     }
     let heldFollowerStage = null;
@@ -8198,7 +8198,7 @@ async function showSpiritFailure(restartScene, followerStart = null, heldFollowe
     let follower = attack?.querySelector("img");
     if (!follower) {
         follower = new Image();
-        follower.src = "assets/interactables/Spirit/WH_AST_Follower.png";
+        follower.src = "assets/interactables/Spirit/WH_AST_Follower.webp";
         follower.alt = "";
         await follower.decode().catch(error => console.warn("Följaren kunde inte laddas:", error));
         if (token !== spiritSequenceToken) return;
@@ -8299,7 +8299,7 @@ async function startSpiritSwamp19Chase() {
     stage.className = "spirit-swamp19-monster";
     stage.setAttribute("aria-hidden", "true");
     const monsterImg = document.createElement("img");
-    monsterImg.src = "assets/interactables/Spirit/WH_AST_Follower.png";
+    monsterImg.src = "assets/interactables/Spirit/WH_AST_Follower.webp";
     monsterImg.alt = "";
     stage.appendChild(monsterImg);
     sceneEl.querySelectorAll(".hotspot").forEach(el => el.remove());
@@ -8335,7 +8335,7 @@ async function startSpiritSwamp19Chase() {
     if (!shouldHold) return;
 
     if (loungeState.spiritCrucifixReady) {
-        monsterImg.src = "assets/interactables/Spirit/WH_AST_Follower_defeated.png";
+        monsterImg.src = "assets/interactables/Spirit/WH_AST_Follower_defeated.webp";
         playEningExSound();
         const continued = await waitForSpiritFrame(600, token);
         if (!continued) return;
@@ -8374,13 +8374,13 @@ const SPIRIT_EQUIPMENT_OVERLAYS = [
     {
         flag: "spiritFlashlightEquipped",
         className: "spirit-equipment-flashlight",
-        image: "assets/interactables/Spirit/WH_AST_Equipped_Flashlight_v01.png",
+        image: "assets/interactables/Spirit/WH_AST_Equipped_Flashlight_v01.webp",
         visibleIn: sceneId => sceneId.startsWith("spiritTunnel")
     },
     {
         flag: "spiritAxeReady",
         className: "spirit-equipment-axe",
-        image: "assets/interactables/Spirit/WH_AST_Equipped_Axe_v01.png",
+        image: "assets/interactables/Spirit/WH_AST_Equipped_Axe_v01.webp",
         visibleIn: sceneId => sceneId === "spiritTunnelRun13",
         special: "spiritTunnelAxe",
         label: "Yxa"
@@ -8388,7 +8388,7 @@ const SPIRIT_EQUIPMENT_OVERLAYS = [
     {
         flag: "spiritRopeReady",
         className: "spirit-equipment-rope",
-        image: "assets/interactables/Spirit/WH_AST_Spirit_Rope_v01.png",
+        image: "assets/interactables/Spirit/WH_AST_Spirit_Rope_v01.webp",
         visibleIn: sceneId => sceneId === "spiritForestPath31",
         special: "spiritForestRope",
         label: "Rep"
@@ -8396,7 +8396,7 @@ const SPIRIT_EQUIPMENT_OVERLAYS = [
     {
         flag: "spiritCrucifixReady",
         className: "spirit-equipment-crucifix",
-        image: "assets/interactables/Spirit/WH_AST_Equipped_Crucifix_v01.png",
+        image: "assets/interactables/Spirit/WH_AST_Equipped_Crucifix_v01.webp",
         visibleIn: sceneId => sceneId === "spiritSwamp19"
     }
 ];
@@ -8757,7 +8757,7 @@ const SPIRIT_SEQUENCES = {
                 effect: "spirit-shake"
             },
             { scene: "spiritForestPath19", duration: 500 },
-            { image: `${SPIRIT_REALM_FOLDER}3ForestPath/WH_ENV_ForestPath19_Master_02.png`, duration: 500 },
+            { image: `${SPIRIT_REALM_FOLDER}3ForestPath/WH_ENV_ForestPath19_Master_02.webp`, duration: 500 },
             { scene: "spiritForestPath20", duration: 2000 }
         ],
         skipFollower: true,
@@ -9727,7 +9727,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
     }
 
     if (special === "readNote") {
-        openNoteOverlay(spot.noteImage || "assets/ui/WH_UI_Doornote.png");
+        openNoteOverlay(spot.noteImage || "assets/ui/WH_UI_Doornote.webp");
         return;
     }
 
@@ -10626,7 +10626,7 @@ function renderWatcherRemote() {
     remoteEl.style.setProperty("--y", "54.9");
     remoteEl.style.setProperty("--w", "20.2");
     remoteEl.style.setProperty("--h", "44.3");
-    remoteEl.style.backgroundImage = 'url("assets/ui/WH_UI_Remote.png")';
+    remoteEl.style.backgroundImage = 'url("assets/ui/WH_UI_Remote.webp")';
     remoteEl.addEventListener("dragover", event => {
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
@@ -11035,7 +11035,7 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
                 el.classList.add("hotspot-icon");
 
                 el.style.backgroundImage =
-                    'url("assets/interactables/Kitchen/books_occult_with_recipe.png")';
+                    'url("assets/interactables/Kitchen/books_occult_with_recipe.webp")';
 
             } else if (
                 spot.icon &&
