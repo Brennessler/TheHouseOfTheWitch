@@ -4510,8 +4510,15 @@ function firebasePathForStorageKey(key) {
     return null;
 }
 
-function mergeFirebaseState(current, incoming, previous) {
+const TRANSACTION_ONLY_LOUNGE_FIELDS = new Set([
+    "recordOnPlayer",
+    "playingRecord",
+    "closeEyesReadyAt"
+]);
+
+function mergeFirebaseState(current, incoming, previous, path = "") {
     if (JSON.stringify(incoming) === JSON.stringify(previous)) return current;
+    const isObject = value => value && typeof value === "object" && !Array.isArray(value);
 
     if (Array.isArray(incoming) && Array.isArray(previous)) {
         const isSameItem = (left, right) => JSON.stringify(left) === JSON.stringify(right);
@@ -4528,25 +4535,39 @@ function mergeFirebaseState(current, incoming, previous) {
         return merged;
     }
 
-    const isObject = value => value && typeof value === "object" && !Array.isArray(value);
-    if (isObject(incoming) && isObject(previous)) {
+    if (isObject(incoming)) {
+        const previousObject = isObject(previous) ? previous : {};
         const merged = isObject(current) ? { ...current } : {};
-        const keys = new Set([...Object.keys(previous), ...Object.keys(incoming)]);
+        const keys = new Set([...Object.keys(previousObject), ...Object.keys(incoming)]);
         keys.forEach(field => {
-            const hadPrevious = Object.prototype.hasOwnProperty.call(previous, field);
+            const fieldPath = path ? `${path}.${field}` : field;
+            if (path === "lounge" && TRANSACTION_ONLY_LOUNGE_FIELDS.has(field)) return;
+
+            const hadPrevious = Object.prototype.hasOwnProperty.call(previousObject, field);
             const hasIncoming = Object.prototype.hasOwnProperty.call(incoming, field);
             const hasCurrent = Object.prototype.hasOwnProperty.call(merged, field);
+            if (path === "" && field === "lounge") {
+                if (isObject(incoming[field])) {
+                    merged[field] = mergeFirebaseState(
+                        merged[field],
+                        incoming[field],
+                        previousObject[field],
+                        fieldPath
+                    );
+                }
+                return;
+            }
             if (!hasIncoming) {
                 if (hadPrevious && hasCurrent &&
-                    JSON.stringify(merged[field]) === JSON.stringify(previous[field])) {
+                    JSON.stringify(merged[field]) === JSON.stringify(previousObject[field])) {
                     delete merged[field];
                 }
             } else if (incoming[field] === null) {
                 delete merged[field];
             } else if (!hadPrevious) {
                 if (!hasCurrent) merged[field] = incoming[field];
-            } else if (JSON.stringify(incoming[field]) !== JSON.stringify(previous[field])) {
-                merged[field] = mergeFirebaseState(merged[field], incoming[field], previous[field]);
+            } else if (JSON.stringify(incoming[field]) !== JSON.stringify(previousObject[field])) {
+                merged[field] = mergeFirebaseState(merged[field], incoming[field], previousObject[field], fieldPath);
             }
         });
         return merged;
@@ -4666,7 +4687,7 @@ function writeFirebaseValue(key, value, previousValue) {
     const save = roomMatch
         ? reference.transaction(current => roomMatch[2] === "lobby"
             ? mergeFirebaseLobby(current, parsedValue, previousData)
-            : mergeFirebaseState(current, parsedValue, previousData))
+            : mergeFirebaseState(current, parsedValue, previousData, ""))
         : reference.set(parsedValue);
     return save.then(() => true).catch(error => {
         showFirebaseError("Kunde inte spara speldata i Firebase. Kontrollera databasreglerna och anslutningen.", error);
@@ -5163,7 +5184,12 @@ function tryResolveSpiritActionVote() {
     if (builderVote.action.type === "special") {
         handleSpecialClick(builderVote.action.special, {}, true);
     } else if (builderVote.action.type === "drop") {
-        handleSpecialDrop(builderVote.action.special, builderVote.action.item, {}, true);
+        handleSpecialDrop(
+            builderVote.action.special,
+            builderVote.action.draggedValue || builderVote.action.item,
+            {},
+            true
+        );
     } else if (builderVote.action.type === "target") {
         goToScene(builderVote.action.target);
     }
@@ -5410,7 +5436,7 @@ function getLoungeMediaSource(dataTransferValue) {
     return { source: "inventory", item: dataTransferValue };
 }
 
-let recordRemovalInProgress = false;
+let recordTransactionInProgress = false;
 
 function removeLoungeMediaFromSource(sourceData) {
     if (sourceData.source === "inventory") {
@@ -5435,21 +5461,197 @@ function removeLoungeMediaFromSource(sourceData) {
     }
 
     if (sourceData.source === "recordPlayer") {
-        if (loungeState.recordOnPlayer !== sourceData.item) return false;
-        loungeState.recordOnPlayer = null;
-        loungeState.playingRecord = null;
-        loungeState.closeEyesReadyAt = null;
-        markSharedLoungeStateChanged();
-        closeListeningOverlays();
-        return true;
+        return false;
     }
 
     return false;
 }
 
-async function takeRecordFromPlayer(record, destination = "inventory") {
+function applyCommittedRecordLounge(lounge) {
+    if (!lounge || typeof lounge !== "object" || Array.isArray(lounge)) return false;
+    Object.assign(loungeState, lounge, {
+        recordOnPlayer: lounge.recordOnPlayer ?? null,
+        playingRecord: lounge.playingRecord ?? null,
+        closeEyesReadyAt: lounge.closeEyesReadyAt ?? null
+    });
+    return true;
+}
+
+async function updateLoungeRecordState(updates) {
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized || !window.firebase?.apps?.length) {
+        showToast("Skivspelaren kunde inte uppdateras eftersom spellobbyn inte är ansluten.");
+        return false;
+    }
+
+    if (recordTransactionInProgress) return false;
+    recordTransactionInProgress = true;
+    const previousValues = Object.fromEntries(
+        Object.keys(updates).map(field => [field, loungeState[field]])
+    );
+    Object.assign(loungeState, updates);
+    syncLoungeAudio();
+    try {
+        const result = await window.firebase.database()
+            .ref(`rooms/${activeLobbyId}/world/lounge`)
+            .transaction(current => {
+                if (!current || typeof current !== "object" || Array.isArray(current)) return;
+                return { ...current, ...updates };
+            });
+        const committedLounge = result.snapshot.val();
+        if (!result.committed || !applyCommittedRecordLounge(committedLounge)) {
+            if (committedLounge) applyCommittedRecordLounge(committedLounge);
+            else Object.assign(loungeState, previousValues);
+            showToast("Skivspelarens state ändrades inte. Kontrollera anslutningen och försök igen.");
+            syncLoungeAudio();
+            refreshScene();
+            return false;
+        }
+        return true;
+    } catch (error) {
+        Object.assign(loungeState, previousValues);
+        syncLoungeAudio();
+        refreshScene();
+        showFirebaseError("Skivspelaren kunde inte uppdateras.", error);
+        return false;
+    } finally {
+        recordTransactionInProgress = false;
+    }
+}
+
+async function putRecordOnPlayer(record, sourceData) {
+    if (!isLoungeRecord(record) || !["inventory", "dumpspot", "surface"].includes(sourceData.source)) {
+        showToast("Skivan kunde inte flyttas till skivspelaren.");
+        return false;
+    }
+    if (sourceData.source === "surface" && !["kitchenTable", "loungeDesk"].includes(sourceData.surfaceId)) {
+        showToast("Skivan kunde inte flyttas från den här ytan.");
+        return false;
+    }
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized || !window.firebase?.apps?.length) {
+        showToast("Skivan kunde inte sättas i eftersom spellobbyn inte är ansluten.");
+        return false;
+    }
+    if (recordTransactionInProgress) return false;
+
+    recordTransactionInProgress = true;
+    const playerId = String(playerState.id);
+    const readyAt = Date.now() + 5000;
+    try {
+        const result = await window.firebase.database()
+            .ref(`rooms/${activeLobbyId}`)
+            .transaction(current => {
+                const currentLounge = current?.world?.lounge;
+                if (!currentLounge || typeof currentLounge !== "object" ||
+                    currentLounge.recordOnPlayer ||
+                    Number(currentLounge.roles?.builder) !== Number(playerState.id) ||
+                    !currentLounge.listenerSeatedBy) return;
+
+                const world = { ...(current.world || {}) };
+                const nextLounge = { ...currentLounge };
+                const next = { ...current, world };
+
+                if (sourceData.source === "inventory") {
+                    const currentPlayers = { ...(current.players || {}) };
+                    const savedPlayer = currentPlayers[playerId];
+                    const currentPlayer = savedPlayer || (inventory.has(record)
+                        ? {
+                            ...JSON.parse(JSON.stringify({
+                                ...playerState,
+                                team: activeLobbyId,
+                                inventory: [...inventory]
+                            }))
+                        }
+                        : null);
+                    const playerInventory = Array.isArray(currentPlayer?.inventory)
+                        ? [...currentPlayer.inventory]
+                        : [];
+                    const itemIndex = playerInventory.indexOf(record);
+                    if (itemIndex < 0) return;
+                    playerInventory.splice(itemIndex, 1);
+                    currentPlayers[playerId] = { ...currentPlayer, inventory: playerInventory };
+                    next.players = currentPlayers;
+                } else if (sourceData.source === "dumpspot") {
+                    const items = [...(currentLounge.dumpspotItems || [])];
+                    const itemIndex = items.indexOf(record);
+                    if (itemIndex < 0) return;
+                    items.splice(itemIndex, 1);
+                    nextLounge.dumpspotItems = items;
+                } else {
+                    const placedItems = { ...(currentLounge.placedItems || {}) };
+                    const items = [...(placedItems[sourceData.surfaceId] || [])];
+                    const itemIndex = items.indexOf(record);
+                    if (itemIndex < 0) return;
+                    items.splice(itemIndex, 1);
+                    placedItems[sourceData.surfaceId] = items;
+                    nextLounge.placedItems = placedItems;
+                }
+
+                nextLounge.recordOnPlayer = record;
+                nextLounge.playingRecord = record;
+                nextLounge.closeEyesReadyAt = readyAt;
+                if (sourceData.source === "dumpspot") {
+                    const sharedFieldRevisions = {
+                        ...(currentLounge.sharedFieldRevisions || {})
+                    };
+                    const latestFieldRevision = Math.max(
+                        0,
+                        ...Object.values(sharedFieldRevisions).map(value => Number(value) || 0)
+                    );
+                    const revision = Math.max(
+                        Date.now() * 10 + (Number(playerState.id) || 0),
+                        (Number(currentLounge.sharedRevision) || 0) + 1,
+                        latestFieldRevision + 1
+                    );
+                    sharedFieldRevisions.dumpspotItems = revision;
+                    nextLounge.sharedFieldRevisions = sharedFieldRevisions;
+                    nextLounge.sharedRevision = revision;
+                }
+                world.lounge = nextLounge;
+                return next;
+            });
+
+        if (!result.committed) {
+            const currentLounge = result.snapshot.val()?.world?.lounge;
+            if (currentLounge?.recordOnPlayer) {
+                showToast("Ta först bort skivan som redan sitter i spelaren.");
+            } else {
+                showToast("Skivan kunde inte flyttas från sin nuvarande plats.");
+            }
+            return false;
+        }
+
+        const committedRoom = result.snapshot.val();
+        if (!applyCommittedRecordLounge(committedRoom?.world?.lounge)) {
+            showToast("Skivan sattes i, men skivspelarens sparade state kunde inte läsas.");
+            return false;
+        }
+        sharedLoungeBaseline = captureSharedLoungeState();
+        const savedInventory = committedRoom.players?.[playerId]?.inventory;
+        if (sourceData.source === "inventory" && Array.isArray(savedInventory)) {
+            inventory.clear();
+            savedInventory.forEach(item => inventory.add(item));
+        }
+        updateInventory();
+        refreshScene();
+        syncLoungeAudio();
+        showToast(`${LOUNGE_RECORDS[record].name} sattes i skivspelaren.`);
+        return true;
+    } catch (error) {
+        showFirebaseError("Skivan kunde inte sättas i skivspelaren.", error);
+        return false;
+    } finally {
+        recordTransactionInProgress = false;
+    }
+}
+
+async function takeRecordFromPlayer(record, destination = "inventory", surfaceId = null) {
     if (!isLoungeRecord(record) || loungeState.recordOnPlayer !== record) return false;
-    if (recordRemovalInProgress) return false;
+    if (!["inventory", "dumpspot", "surface"].includes(destination) ||
+        (destination === "surface" && !["kitchenTable", "loungeDesk"].includes(surfaceId))) {
+        showToast("Skivan kunde inte flyttas till den valda platsen.");
+        return false;
+    }
+    if (recordTransactionInProgress) return false;
     if (destination === "inventory" &&
         !inventory.has(record) &&
         occupiedInventorySlots() >= inventoryCapacity()) {
@@ -5461,7 +5663,7 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
         return false;
     }
 
-    recordRemovalInProgress = true;
+    recordTransactionInProgress = true;
     try {
         const result = await window.firebase.database()
             .ref(`rooms/${activeLobbyId}`)
@@ -5469,28 +5671,25 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
                 const currentLounge = current?.world?.lounge;
                 if (!currentLounge || currentLounge.recordOnPlayer !== record) return;
 
-                const changedFields = [
-                    "recordOnPlayer",
-                    "playingRecord",
-                    "closeEyesReadyAt",
-                    ...(destination === "dumpspot" ? ["dumpspotItems"] : [])
-                ];
-                const latestFieldRevision = Math.max(
-                    0,
-                    ...Object.values(currentLounge.sharedFieldRevisions || {})
-                        .map(revision => Number(revision) || 0)
-                );
-                const revision = Math.max(
-                    Date.now() * 10 + (Number(playerState.id) || 0),
-                    (Number(currentLounge.sharedRevision) || 0) + 1,
-                    latestFieldRevision + 1
-                );
+                const changedFields = destination === "dumpspot" ? ["dumpspotItems"] : [];
                 const sharedFieldRevisions = {
                     ...(currentLounge.sharedFieldRevisions || {})
                 };
-                changedFields.forEach(field => {
-                    sharedFieldRevisions[field] = revision;
-                });
+                let revision = Number(currentLounge.sharedRevision) || 0;
+                if (changedFields.length) {
+                    const latestFieldRevision = Math.max(
+                        0,
+                        ...Object.values(sharedFieldRevisions).map(value => Number(value) || 0)
+                    );
+                    revision = Math.max(
+                        Date.now() * 10 + (Number(playerState.id) || 0),
+                        revision + 1,
+                        latestFieldRevision + 1
+                    );
+                    changedFields.forEach(field => {
+                        sharedFieldRevisions[field] = revision;
+                    });
+                }
                 const next = {
                     ...current,
                     world: {
@@ -5504,6 +5703,16 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
                             closeEyesReadyAt: null,
                             ...(destination === "dumpspot"
                                 ? { dumpspotItems: [...(currentLounge.dumpspotItems || []), record] }
+                                : destination === "surface"
+                                    ? {
+                                        placedItems: {
+                                            ...(currentLounge.placedItems || {}),
+                                            [surfaceId]: [
+                                                ...(currentLounge.placedItems?.[surfaceId] || []),
+                                                record
+                                            ]
+                                        }
+                                    }
                                 : {})
                         }
                     }
@@ -5529,16 +5738,18 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
                         }
                     };
                 }
+                if (destination !== "inventory" &&
+                    destination !== "dumpspot" &&
+                    destination !== "surface") return;
                 return next;
             });
 
-        if (!result.committed) return false;
+        if (!result.committed) {
+            showToast("Skivan har redan flyttats av en annan spelare.");
+            return false;
+        }
         const committedRoom = result.snapshot.val();
-        Object.assign(loungeState, committedRoom.world.lounge, {
-            recordOnPlayer: null,
-            playingRecord: null,
-            closeEyesReadyAt: null
-        });
+        applyCommittedRecordLounge(committedRoom.world.lounge);
         markSharedLoungeStateChanged();
         if (destination === "inventory") {
             const savedInventory = committedRoom.players?.[String(playerState.id)]?.inventory;
@@ -5553,7 +5764,7 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
         showFirebaseError("Skivan kunde inte tas ut ur skivspelaren.", error);
         return false;
     } finally {
-        recordRemovalInProgress = false;
+        recordTransactionInProgress = false;
     }
 }
 
@@ -5591,6 +5802,7 @@ const SHARED_LOUNGE_STATE_FIELDS = [
     "spiritRopeReady",
     "spiritCrucifixReady",
     "spiritRunActive",
+    "dumpspotItems",
     "recordOnPlayer",
     "playingRecord",
     "closeEyesReadyAt",
@@ -5942,8 +6154,10 @@ function completeLoungePuzzle() {
     loungeState.puzzleSolved = true;
     loungeState.powerCut = true;
     loungeState.tvOn = false;
-    loungeState.playingRecord = null;
-    loungeState.closeEyesReadyAt = null;
+    void updateLoungeRecordState({
+        playingRecord: null,
+        closeEyesReadyAt: null
+    });
     loungeState.listenerSeatedBy = null;
     loungeState.listenerSeatSession = null;
     closeListeningOverlays();
@@ -10135,8 +10349,10 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         loungeState.spiritVoteResolvedToken = null;
         loungeState.bodyKeyringAvailable = true;
         loungeState.tvOn = false;
-        loungeState.playingRecord = null;
-        loungeState.closeEyesReadyAt = null;
+        void updateLoungeRecordState({
+            playingRecord: null,
+            closeEyesReadyAt: null
+        });
         markSharedLoungeStateChanged();
         saveWorldState();
         syncLoungeAudio();
@@ -10408,6 +10624,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
             type: "drop",
             special,
             item: draggedItem,
+            draggedValue,
             actorId: playerState.id
         }, label, `vill använda ${label}`);
         return;
@@ -10454,6 +10671,10 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
             return;
         }
         if (dragged.source === "inventory" && !inventory.has(draggedItem)) return;
+        if (dragged.source === "recordPlayer") {
+            void takeRecordFromPlayer(draggedItem, "surface", spot.surfaceId);
+            return;
+        }
         if (!removeLoungeMediaFromSource(dragged)) return;
         ensurePlacedItems(spot.surfaceId).push(draggedItem);
         updateInventory();
@@ -10508,19 +10729,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
             showToast("Ta först bort skivan som redan sitter i spelaren.");
             return;
         }
-        if (!removeLoungeMediaFromSource(dragged)) {
-            showToast("Skivan kunde inte flyttas till skivspelaren.");
-            return;
-        }
-        loungeState.recordOnPlayer = draggedItem;
-        loungeState.playingRecord = draggedItem;
-        loungeState.closeEyesReadyAt = Date.now() + 5000;
-        markSharedLoungeStateChanged();
-        updateInventory();
-        saveWorldState();
-        refreshScene();
-        syncLoungeAudio();
-        showToast(`${LOUNGE_RECORDS[draggedItem].name} sattes i skivspelaren.`);
+        void putRecordOnPlayer(draggedItem, dragged);
         return;
     }
 
@@ -13373,9 +13582,6 @@ function setLoungeSolvedDebugState() {
     loungeState.puzzleSolved = true;
     loungeState.powerCut = true;
     loungeState.tvOn = false;
-    loungeState.recordOnPlayer = null;
-    loungeState.playingRecord = null;
-    loungeState.closeEyesReadyAt = null;
     loungeState.listenerSeatedBy = null;
     loungeState.listenerSeatSession = null;
     loungeState.cabinetOpen = true;
@@ -13396,6 +13602,11 @@ function setLoungeSolvedDebugState() {
     loungeState.spiritVotes = {};
     loungeState.spiritVoteResolvedToken = null;
 
+    void updateLoungeRecordState({
+        recordOnPlayer: null,
+        playingRecord: null,
+        closeEyesReadyAt: null
+    });
     markSharedLoungeStateChanged();
     saveWorldState();
     refreshScene();
@@ -13459,9 +13670,6 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
         puzzleSolved: true,
         powerCut: true,
         tvOn: false,
-        recordOnPlayer: null,
-        playingRecord: null,
-        closeEyesReadyAt: null,
         listenerSeatedBy: null,
         listenerSeatSession: null,
         cabinetOpen: true,
@@ -13486,6 +13694,11 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
         seancePortraitFallen: false,
         builderRevived: false,
         builderCoughCount: 0
+    });
+    void updateLoungeRecordState({
+        recordOnPlayer: null,
+        playingRecord: null,
+        closeEyesReadyAt: null
     });
     resetSpiritChoiceState();
 
@@ -13556,11 +13769,8 @@ function resetWorldState() {
         roles: { listener: null, watcher: null, builder: null, messenger: null },
         remoteBatteries: [],
         remotePowered: false,
-        recordOnPlayer: null,
-        playingRecord: null,
         listenerSeatedBy: null,
         listenerSeatSession: null,
-        closeEyesReadyAt: null,
         albumShelfSlots: {},
         puzzleSolved: false,
         powerCut: false,
@@ -13591,6 +13801,11 @@ function resetWorldState() {
         builderRevived: false,
         builderCoughCount: 0,
         placedItems: { kitchenTable: [], loungeDesk: [] }
+    });
+    void updateLoungeRecordState({
+        recordOnPlayer: null,
+        playingRecord: null,
+        closeEyesReadyAt: null
     });
 
     playerState.role = null;
