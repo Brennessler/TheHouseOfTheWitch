@@ -5446,6 +5446,7 @@ async function takeRecordFromPlayer(record, destination = "inventory") {
             playingRecord: null,
             closeEyesReadyAt: null
         });
+        markSharedLoungeStateChanged();
         if (destination === "inventory" && !tryAddInventoryItem(record)) {
             showToast("Skivan togs ur spelaren, men kunde inte läggas i inventory.");
         } else if (destination === "inventory") {
@@ -5494,7 +5495,11 @@ const SHARED_LOUNGE_STATE_FIELDS = [
     "spiritAxeReady",
     "spiritRopeReady",
     "spiritCrucifixReady",
-    "spiritRunActive"
+    "spiritRunActive",
+    "recordOnPlayer",
+    "playingRecord",
+    "closeEyesReadyAt",
+    "dumpspotItems"
 ];
 
 function markSharedLoungeStateChanged() {
@@ -11845,8 +11850,13 @@ function goToScene(id, { debugNavigation = false, transition = true } = {}) {
         const sceneImage = typeof data.image === "function" ? data.image() : data.image;
         preloadSceneImage(sceneImage).then(() => {
             if (sceneLoadRequest !== sceneLoadRequestId) return;
-            sceneEl.classList.add("fading");
-            sceneTransitionTimer = setTimeout(renderScene, 400);
+            sceneEl.classList.remove("spirit-no-transition", "fading");
+            void sceneEl.offsetWidth;
+            requestAnimationFrame(() => {
+                if (sceneLoadRequest !== sceneLoadRequestId) return;
+                sceneEl.classList.add("fading");
+                sceneTransitionTimer = setTimeout(renderScene, 400);
+            });
         });
     } else {
         renderScene();
