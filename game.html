@@ -3669,7 +3669,7 @@ const scenes = {
 
     kitchenRaven: {
         name: "Köket - Korpen",
-        image: () => ravenState.solved ? RAVEN_FED_IMAGE : RAVEN_UNFED_IMAGE,
+        image: () => ravenState.fed || ravenState.solved ? RAVEN_FED_IMAGE : RAVEN_UNFED_IMAGE,
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchen", label: "Tillbaka" },
             { x: 27.1, y: 16.2, w: 47, h: 70.7, special: "ravenPuzzle", label: "Korpen" }
@@ -4324,6 +4324,7 @@ const worldState = {
     },
     raven: {
         started: false,
+        fed: false,
         solved: false,
         guesses: [],
         currentGuess: "",
@@ -10615,6 +10616,15 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
             return;
         }
 
+        if (ravenState.fed) {
+            ravenState.started = true;
+            ravenState.guesses = [];
+            ravenState.currentGuess = "";
+            saveWorldState();
+            openRavenPuzzle();
+            return;
+        }
+
         showToast("Korpen följer med blicken. Den ser hungrig ut.");
     }
 }
@@ -10802,7 +10812,8 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
     if (special === "ravenPuzzle") {
         const canonicalBrainJar = draggedItem === "brain_jar" ? "frogBrain" : draggedItem;
 
-        if (ravenState.solved || canonicalBrainJar !== "frogBrain" || !inventory.has("frogBrain")) {
+        if (ravenState.fed || ravenState.solved ||
+            canonicalBrainJar !== "frogBrain" || !inventory.has("frogBrain")) {
             showToast("Det går inte att använda det här på korpen.");
             return;
         }
@@ -10810,6 +10821,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
         inventory.delete("frogBrain");
         updateInventory();
         ravenState.started = true;
+        ravenState.fed = true;
         ravenState.solved = false;
         ravenState.guesses = [];
         ravenState.currentGuess = "";
@@ -10919,6 +10931,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
 
 function resetRavenPuzzle() {
     ravenState.started = false;
+    ravenState.fed = false;
     ravenState.solved = false;
     ravenState.guesses = [];
     ravenState.currentGuess = "";
@@ -11090,7 +11103,10 @@ function submitRavenGuess() {
 
     if (ravenState.guesses.length >= 6) {
         closeRavenPuzzle();
-        resetRavenPuzzle();
+        ravenState.started = false;
+        ravenState.guesses = [];
+        ravenState.currentGuess = "";
+        saveWorldState();
         showToast("Korpen avvisar svaret.");
         return;
     }
