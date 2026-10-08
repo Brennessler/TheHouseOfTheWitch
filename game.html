@@ -1811,6 +1811,7 @@ body.raven-wordle #ravenPuzzleOverlay {
     left: 18%;
     top: 78%;
     width: 18%;
+    z-index: 2;
     transform: translate(-50%, -44%);
     cursor: grab;
     touch-action: none;
@@ -1840,6 +1841,7 @@ body.raven-wordle #ravenPuzzleOverlay {
     position: absolute;
     bottom: 2%;
     left: 50%;
+    z-index: 3;
     max-width: 80%;
     transform: translateX(-50%);
     padding: 4px 10px;
@@ -1858,6 +1860,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 #ouijaLetterHints {
     position: absolute;
     inset: 0;
+    z-index: 1;
     pointer-events: none;
 }
 
@@ -9249,6 +9252,13 @@ const SPIRIT_SCENE_ORDER = SPIRIT_REALM_STEPS.map(step => step.id);
 const SPIRIT_SCENE_INDEX = new Map(SPIRIT_SCENE_ORDER.map((id, index) => [id, index]));
 const OUIJA_HINT_LOOKAHEAD_STEPS = 3;
 
+function getOuijaHintScene() {
+    if (SPIRIT_SCENE_IDS.has(currentScene)) return currentScene;
+    return SPIRIT_SCENE_IDS.has(loungeState.spiritSharedScene)
+        ? loungeState.spiritSharedScene
+        : currentScene;
+}
+
 function updateOuijaLetterHints(sceneId) {
     if (!ouijaLetterHintsEl) return;
     ouijaLetterHintsEl.innerHTML = "";
@@ -10304,7 +10314,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
             showToast("Siaren kan inte använda Ouija-brädet.");
             return;
         }
-        updateOuijaLetterHints(loungeState.spiritSharedScene || currentScene);
+        updateOuijaLetterHints(getOuijaHintScene());
         document.getElementById("ouijaBoardOverlay").classList.add("visible");
         document.body.classList.add("ouija-board-open");
         syncSpiritRun();
@@ -12210,7 +12220,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         }
         syncSpiritRun();
         renderSpiritEquipmentOverlays(id);
-        updateOuijaLetterHints(loungeState.spiritSharedScene || id);
+        updateOuijaLetterHints(getOuijaHintScene());
                 if (
             typeof SPIRIT_SCENE_IDS !== "undefined" &&
             SPIRIT_SCENE_IDS.has(id)
@@ -12348,6 +12358,12 @@ function normalizeReconnectCode(code) {
     return String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
+function reconnectCodeStorageKey(lobbyId = activeLobbyId, seatId = lobbySeatId) {
+    return lobbyId && seatId
+        ? `wh_reconnectCode_${lobbyId}_${seatId}`
+        : null;
+}
+
 async function saveReconnectCode(code, record) {
     if (!firebaseConnected || !firebaseInitialized) {
         throw new Error("Firebase är inte anslutet.");
@@ -12357,6 +12373,14 @@ async function saveReconnectCode(code, record) {
 
 function setVisibleReconnectCode(code) {
     activeReconnectCode = code || null;
+    const storageKey = reconnectCodeStorageKey();
+    if (storageKey) {
+        if (activeReconnectCode) {
+            sessionStorage.setItem(storageKey, activeReconnectCode);
+        } else {
+            sessionStorage.removeItem(storageKey);
+        }
+    }
     const formattedCode = code ? formatReconnectCode(code) : "";
     reconnectCodeValueEl.textContent = formattedCode;
     reconnectCodeDisplayEl.hidden = !code;
@@ -12378,7 +12402,7 @@ async function copyReconnectCode() {
 }
 
 function ensurePlayerReconnectCode(lobbyId, seatId, player) {
-    if (player.reconnectId) return;
+    if (player.reconnectId && activeReconnectCode) return;
     const code = generateReconnectCode();
     const reconnectId = crypto.randomUUID();
     player.reconnectId = reconnectId;
@@ -12396,8 +12420,10 @@ function ensurePlayerReconnectCode(lobbyId, seatId, player) {
                 reconnectId,
                 createdAt: Date.now()
             });
+            setVisibleReconnectCode(code);
         } catch (error) {
             console.error("Återanslutningskoden kunde inte sparas.", error);
+            lobbyNoticeEl.textContent = "Återanslutningskoden kunde inte återställas. Försök ladda om sidan.";
         }
     });
 }
@@ -13167,6 +13193,9 @@ function restoreLobbySession() {
         TEST_TEAM.team = lobbyId;
         currentLobbyRoom = room;
         sessionStorage.setItem("wh_activeLobbyId", lobbyId);
+        setVisibleReconnectCode(
+            sessionStorage.getItem(reconnectCodeStorageKey(lobbyId, Number(ownSeat)))
+        );
         ensurePlayerReconnectCode(lobbyId, Number(ownSeat), joinedPlayer);
 
         if (room.startedAt) {
@@ -14275,7 +14304,7 @@ sharedStateStore.subscribe(event => {
             renderSpiritEquipmentOverlays(currentScene);
         }
         if (document.getElementById("ouijaBoardOverlay").classList.contains("visible")) {
-            updateOuijaLetterHints(loungeState.spiritSharedScene || currentScene);
+            updateOuijaLetterHints(getOuijaHintScene());
         }
     }
 
