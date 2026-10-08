@@ -7375,7 +7375,7 @@ function updateInventory({ persist = true } = {}) {
         itemEl.title = albumSet
             ? `${albumSet.record.name} i ${albumSet.cover.name}`
             : itemNames[item] || item;
-        itemEl.draggable = true;
+        itemEl.draggable = !(isLoungeRecord(item) && currentScene === "loungeRecordPlayer");
 
         const icon = itemIcons[item];
 
@@ -7426,6 +7426,76 @@ function updateInventory({ persist = true } = {}) {
             selectedItem = undefined;
             event.dataTransfer.setData("text/plain", item);
         });
+        if (isLoungeRecord(item) && currentScene === "loungeRecordPlayer") {
+            let pointerStart = null;
+            let pointerDragging = false;
+
+            const clearPointerDrag = () => {
+                pointerStart = null;
+                pointerDragging = false;
+                dragPreviewEl?.remove();
+                dragPreviewEl = null;
+                dragSourceEl = null;
+                document.body.classList.remove("item-dragging");
+            };
+
+            itemEl.addEventListener("pointerdown", event => {
+                if (event.button !== 0) return;
+                pointerStart = {
+                    id: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY
+                };
+                itemEl.setPointerCapture(event.pointerId);
+            });
+
+            itemEl.addEventListener("pointermove", event => {
+                if (!pointerStart || event.pointerId !== pointerStart.id) return;
+                if (
+                    !pointerDragging &&
+                    Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) < 6
+                ) {
+                    return;
+                }
+
+                if (!pointerDragging) {
+                    pointerDragging = true;
+                    document.body.classList.add("item-dragging");
+                    dragSourceEl = itemEl;
+                    dragPreviewEl = document.createElement("div");
+                    dragPreviewEl.className = "drag-preview";
+                    const rect = itemEl.getBoundingClientRect();
+                    const size = value => Math.min(180, Math.max(50, value));
+                    dragPreviewEl.style.width = `${size(rect.width)}px`;
+                    dragPreviewEl.style.height = `${size(rect.height)}px`;
+                    const img = document.createElement("img");
+                    img.src = itemIcons[item];
+                    dragPreviewEl.appendChild(img);
+                    document.body.appendChild(dragPreviewEl);
+                }
+
+                event.preventDefault();
+                dragPreviewEl.style.left = `${event.clientX}px`;
+                dragPreviewEl.style.top = `${event.clientY}px`;
+                dragPreviewEl.classList.toggle(
+                    "over-drop-zone",
+                    Boolean(getLoungeRecordSlotAtPoint(event.clientX, event.clientY))
+                );
+            });
+
+            itemEl.addEventListener("pointerup", event => {
+                if (!pointerStart || event.pointerId !== pointerStart.id) return;
+                if (pointerDragging) {
+                    const spot = getLoungeRecordSlotAtPoint(event.clientX, event.clientY);
+                    if (spot && inventory.has(item)) {
+                        handleSpecialDrop("loungeRecordSlot", item, spot);
+                    }
+                }
+                clearPointerDrag();
+            });
+
+            itemEl.addEventListener("pointercancel", clearPointerDrag);
+        }
         itemEl.addEventListener("dragover", event => event.preventDefault());
         itemEl.addEventListener("drop", event => {
             event.preventDefault();
