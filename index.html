@@ -2028,7 +2028,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 .spirit-swamp19-monster {
     position: absolute;
     inset: 0;
-    z-index: 15;
+    z-index: 17;
     overflow: hidden;
     pointer-events: none;
 }
@@ -2037,6 +2037,7 @@ body.raven-wordle #ravenPuzzleOverlay {
     position: absolute;
     object-fit: contain;
     object-position: center top;
+    mix-blend-mode: screen;
 }
 
 #scene.spirit-shake {
@@ -8466,6 +8467,8 @@ let spiritSequenceToken = 0;
 let spiritSequenceTimer = null;
 let spiritRampUpTimer = null;
 let spiritSequenceInProgress = false;
+let spiritSwamp19ChaseToken = null;
+let spiritSwamp19WatchdogTimer = null;
 let spiritRemoteFrameToken = 0;
 let spiritRampUpStartedForSequence = false;
 let spiritRampUpPlaybackClaimed = false;
@@ -8687,7 +8690,11 @@ function cancelSpiritSequence({
     preserveInProgress = false,
     preserveSwampMonster = false
 } = {}) {
+    const wasSwamp19ChaseActive = spiritSwamp19ChaseToken !== null;
     spiritSequenceToken += 1;
+    spiritSwamp19ChaseToken = null;
+    clearTimeout(spiritSwamp19WatchdogTimer);
+    spiritSwamp19WatchdogTimer = null;
     setForestWindAudio(false);
     clearTimeout(spiritSequenceTimer);
     spiritSequenceTimer = null;
@@ -8706,6 +8713,20 @@ function cancelSpiritSequence({
         sceneEl.querySelectorAll(".spirit-swamp19-monster").forEach(el => el.remove());
     }
     clearSpiritEffects();
+
+    if (wasSwamp19ChaseActive && currentScene === "spiritSwamp19") {
+        setTimeout(() => {
+            if (
+                currentScene === "spiritSwamp19" &&
+                playerState.scene === "spiritSwamp19" &&
+                !loungeState.spiritBanished &&
+                !document.getElementById("spiritFailureOverlay").classList.contains("visible") &&
+                spiritSwamp19ChaseToken === null
+            ) {
+                startSpiritSwamp19Chase();
+            }
+        }, 250);
+    }
 }
 
 function waitForSpiritFrame(duration, token) {
@@ -9047,8 +9068,17 @@ const SPIRIT_SWAMP19_MONSTER_INTERVALS = SPIRIT_SWAMP19_MONSTER_POSITIONS
     .map((_, index) => (index < 9 ? 1000 : 500));
 
 async function startSpiritSwamp19Chase() {
+    if (
+        loungeState.spiritBanished ||
+        currentScene !== "spiritSwamp19" ||
+        (spiritSwamp19ChaseToken !== null &&
+            sceneEl.querySelector(".spirit-swamp19-monster"))
+    ) {
+        return;
+    }
     cancelSpiritSequence();
     const token = spiritSequenceToken;
+    spiritSwamp19ChaseToken = token;
 
     loungeState.spiritCrucifixReady = false;
     markSharedLoungeStateChanged();
@@ -9066,6 +9096,25 @@ async function startSpiritSwamp19Chase() {
 
     const chaseDuration = SPIRIT_SWAMP19_MONSTER_INTERVALS
         .reduce((total, interval) => total + interval, 0);
+    spiritSwamp19WatchdogTimer = setTimeout(() => {
+        if (
+            token !== spiritSequenceToken ||
+            spiritSwamp19ChaseToken !== token ||
+            currentScene !== "spiritSwamp19"
+        ) {
+            return;
+        }
+
+        console.error("Krucifixjakten fastnade; visar återhämtningsflödet.");
+        spiritSwamp19WatchdogTimer = null;
+        if (loungeState.spiritCrucifixReady) {
+            monsterImg.src = "assets/interactables/Spirit/WH_AST_Follower_defeated.webp";
+            playEningExSound();
+            runSpiritWhiteTransition("spiritSwamp17", { keepMonsterVisible: true });
+        } else {
+            showSpiritSwamp19FailureMessage();
+        }
+    }, chaseDuration + 6000);
     const rampUpDelay = Math.max(0, chaseDuration - getSpiritRampUpDurationMs());
     spiritRampUpTimer = setTimeout(
         () => startSpiritRampUpForSequence(token),
@@ -9098,8 +9147,12 @@ async function startSpiritSwamp19Chase() {
         playEningExSound();
         const continued = await waitForSpiritFrame(600, token);
         if (!continued) return;
+        clearTimeout(spiritSwamp19WatchdogTimer);
+        spiritSwamp19WatchdogTimer = null;
         runSpiritWhiteTransition("spiritSwamp17", { keepMonsterVisible: true });
     } else {
+        clearTimeout(spiritSwamp19WatchdogTimer);
+        spiritSwamp19WatchdogTimer = null;
         showSpiritSwamp19FailureMessage();
     }
 }
@@ -12201,8 +12254,13 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         }
         if (sharedSpiritStateChanged) markSharedLoungeStateChanged();
         updateSpiritDecisionCountdown(id);
-        if (id === "spiritSwamp19" &&
-            (!initialSceneRendered || previousScene !== id)) {
+        if (
+            id === "spiritSwamp19" &&
+            !loungeState.spiritBanished &&
+            !document.getElementById("spiritFailureOverlay").classList.contains("visible") &&
+            (spiritSwamp19ChaseToken === null ||
+                !sceneEl.querySelector(".spirit-swamp19-monster"))
+        ) {
             startSpiritSwamp19Chase();
         }
         if (initialSceneRendered && previousScene !== id) {
