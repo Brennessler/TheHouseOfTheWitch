@@ -12201,15 +12201,16 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         }
         if (sharedSpiritStateChanged) markSharedLoungeStateChanged();
         updateSpiritDecisionCountdown(id);
+        if (id === "spiritSwamp19" &&
+            (!initialSceneRendered || previousScene !== id)) {
+            startSpiritSwamp19Chase();
+        }
         if (initialSceneRendered && previousScene !== id) {
             handleBuilderCough();
             if (id === "spiritWoods6") {
                 setTimeout(() => {
                     if (currentScene === "spiritWoods6") showToast("Skogen är tyst");
                 }, 1000);
-            }
-            if (id === "spiritSwamp19") {
-                startSpiritSwamp19Chase();
             }
         }
         initialSceneRendered = true;
