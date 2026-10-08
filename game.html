@@ -7557,50 +7557,109 @@ function openRecipeBook() {
 }
 
 const NOTE_TEXT_BY_IMAGE = {
-    "assets/ui/WH_UI_Doornote.webp": `Hej!
+    "assets/ui/WH_UI_Doornote.webp": `Kära gäster,
 
-Var tvungen att rusa iväg, grannens katt är borta och jag behöver ett alibi.
-Jag tänkte hämta boken åt er, men Baba läste de på dass när jag gick. Hon lovade att ta med den till köket när hon var klar.
-Jag lämnar köksnyckeln här för säkerhets skull. Baba har glömt hur hennes egen dörr fungerar flera gånger den här månaden.
-När ni har boken kommer transportportalen aktiveras i hallen, så slipper ni gå hem i mörkret.
-Puss puss
+Om ni läser detta är jag tyvärr inte hemma.
+
+Grannens katt har försvunnit igen, och eftersom byborna av någon märklig anledning alltid börjar med att misstänka häxan, ansåg jag det klokt att skaffa mig ett alibi.
+
+Jag hade tänkt lämna boken åt er personligen, men min mor tog med sig den in på toaletten för sin kvällsläsning. Hon försäkrade mig om att hon skulle lägga den i köket när hon var färdig.
+
+Min mor försäkrar mig många saker.
+
+Därför lämnar jag även köksnyckeln. Den senaste månaden har hon lyckats låsa ute sig själv ur sitt eget hus fyra gånger, förlägga två nyckelknippor och på något sätt tappa bort en dörr.
+
+När ni väl har boken kommer portalen i hallen att vakna till liv. Den tar er hem betydligt snabbare än skogsvägen, och med avsevärt lägre risk att bli uppäten.
+
+Försök att inte flytta runt något medan jag är borta.
+
 // Kassandra`,
-    "assets/ui/WH_UI_BabaNote.webp": `Hej.
+    "assets/ui/WH_UI_BabaNote.webp": `HEJ.
 
 Boken är inte i köket.
-Jag glömde ta med den från toaletten.
-När jag mindes att jag glömt var maken på toa. Vad är det med gubbar att spendera dagar därinne?
 
-Aja, jag har en nyckel men den är borta.
+Glömde den på toa.
 
-Nä, den är gömd.
-Jag gömde nyckeln i kassaskåpet så att ingen skulle tappa bort den.
+Sen var maken där.
 
-Men kassaskåpet är borta. Jag skrev ju ned...
+Fortfarande där när jag kom på att boken var där.
 
-Aja, gör min komma ihåg dryck så hittar ni den. Jag ska plocka kantareller.
+Gubbar kan inte gå på toa normalt. Sitter där i timmar. Som om dom ruvar ägg.
+
+Dörren är låst.
+
+Nyckeln har jag.
+
+Hade.
+
+Har den nog.
+
+Nån stans.
+
+NÄ.
+
+Kom på.
+
+Jag gömde den i kassaskåpet så ingen klant tappar bort den.
+
+Smart.
+
+Nu minns jag inte vart kassaskåpet är.
+
+Mindre smart.
+
+Brygg kommaihåg-drycken så hittar ni det.
+
+Receptet finns här nånstans.
+
+Jag går ut och plockar svamp.
+
+Behöver ny make snart.
+
+Den förra tålde inte maten.
+
+Klent virke.
 
 // Baba`,
     "assets/ui/WH_UI_Kirknote.webp": `Mormor,
 
 Jag tog toanyckeln.
-Det är galenskap att ha den i ett låst kassaskåp, det är illa nog att behöva släpa dina gubbar av toastolen.
 
-Jag hängde nyckeln i elskåpet uppe i loungen.
+Att låsa in en nyckel i ett kassaskåp är exakt den sortens idé som får folk att dö på toaletten.
 
-Om nöd eller döden kallar, titta förbi. Jag lämnar min extranyckel här.
+Vilket de också nästan gör.
+
+Helt ärligt förstår jag inte varför du fortfarande gifter dig. De flesta av dina män tillbringar halva äktenskapet på dass och andra halvan med att återhämta sig från mystiska svampgrytor.
+
+Numera låser de ju in sig där inne så fort du börjar laga mat.
+
+Hela huset är beroende av den där nyckeln.
+
+Jag flyttade den därför till elskåpet uppe i loungen. Det är åtminstone ett ställe folk faktiskt kan hitta.
+
+Om ni behöver komma in till mig ligger min reservnyckel här.
+
+Mamma tycker säkert att jag överdriver, men någon måste ju vara den vuxna i familjen.
+
 // Kirke`,
     "assets/ui/WH_UI_Kassnote.webp": `Kirke,
 
-Jag orkar inte stå och banka på din dörr i tio minuter varje gång Babas gubbar säckar ihop.
+Jag hittade nyckeln i elskåpet.
 
-Och eftersom du aldrig tar av dig hörlurarna, och Baba av någon anledning fortsätter förgifta sina makar, så har jag löst problemet själv.
+Jag vill först påpeka att "i elskåpet" inte är en förbättring jämfört med "i ett försvunnet kassaskåp".
 
-Jag tog nyckeln från elskåpet och förtrollade den.
+För det andra skulle jag uppskatta om du slutade förvara viktiga föremål på platser som kräver stegar, bergsbestigningsutrustning eller ett särskilt dödsförakt för att nå.
 
-Hosta tre gånger så visar den sig.
+Eftersom mormor fortsätter att förgifta sina makar i snabbare takt än huset hinner begrava dem, behövs nyckeln alldeles för ofta för att förvaras så illa.
 
-Om det inte fungerar så kom upp till tornet när jag är tillbaka, så får vi hitta en mindre korkad lösning.
+Jag har därför förtrollat den.
+
+Om du hostar tre gånger visar nyckeln sig.
+
+Om detta misslyckas får ni komma upp till tornet när jag återvänder, så får vi tillsammans försöka införa åtminstone en enda vettig regel i den här familjen.
+
+Hälsa mormor att hennes svampkorg ryker nästa gång.
+
 // Kassandra`
 };
 
@@ -7691,17 +7750,27 @@ ouijaPlanchetteEl.addEventListener("pointerup", event => {
     if (!ouijaDrag || event.pointerId !== ouijaDrag.pointerId) return;
     resetOuijaPlanchette();
     if (!ouijaText) return;
-    const answerScene = loungeState.spiritSharedScene || currentScene;
-    if (SPIRIT_CORRECT_ANSWERS.has(`${answerScene}:${normalizeSpiritTerm(ouijaText)}`)) {
+    const messageText = ouijaText;
+    const answerScene = SPIRIT_SCENE_IDS.has(loungeState.spiritSharedScene)
+        ? loungeState.spiritSharedScene
+        : currentScene;
+    if (SPIRIT_CORRECT_ANSWERS.has(`${answerScene}:${normalizeSpiritTerm(messageText)}`)) {
         clearSpiritDecisionCountdown();
     }
+    ouijaMessageEl.textContent = "Skickar...";
+    ouijaText = "";
     sharedStateStore.write(OUIJA_EVENT_KEY, JSON.stringify({
-        text: ouijaText,
+        text: messageText,
         playerId: playerState.id,
         timestamp: Date.now()
-    }));
-    ouijaMessageEl.textContent = "Skickat";
-    ouijaText = "";
+    })).then(saved => {
+        ouijaMessageEl.textContent = saved
+            ? "Skickat"
+            : "Kunde inte skicka. Kontrollera anslutningen.";
+    }).catch(error => {
+        console.error("Ouija-meddelandet kunde inte skickas.", error);
+        ouijaMessageEl.textContent = "Kunde inte skicka. Kontrollera anslutningen.";
+    });
 });
 
 ouijaPlanchetteEl.addEventListener("pointercancel", resetOuijaPlanchette);
@@ -14240,11 +14309,14 @@ sharedStateStore.subscribe(event => {
         }
     }
 
-    const spiritSceneId = loungeState.spiritSharedScene || currentScene;
+    const sharedSpiritScene = loungeState.spiritSharedScene;
+    const spiritSceneId = SPIRIT_SCENE_IDS.has(sharedSpiritScene)
+        ? sharedSpiritScene
+        : currentScene;
     if (
         event.key === OUIJA_EVENT_KEY &&
         event.newValue &&
-        isActiveSpiritTraveler() &&
+        (SPIRIT_SCENE_IDS.has(currentScene) || isActiveSpiritTraveler()) &&
         SPIRIT_SCENE_IDS.has(spiritSceneId)
     ) {
         const message = JSON.parse(event.newValue);
