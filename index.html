@@ -7406,6 +7406,11 @@ function updateInventory({ persist = true } = {}) {
         }
 
         itemEl.addEventListener("click", () => {
+            if (isLoungeRecord(item) && currentScene === "loungeRecordPlayer") {
+                handleSpecialDrop("loungeRecordSlot", item);
+                return;
+            }
+
             if (item === "purplePotion") {
                 showConfirm("Trolldrycken", "Ta en hutt?", () => {
                     playPotionDrunkSound();
@@ -10614,7 +10619,16 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
     }
 
     if (special === "loungeRecordSlot") {
-        showToast("Dra en skiva från inventoryn till skivspelaren.");
+        const inventoryRecords = [...inventory].filter(isLoungeRecord);
+        if (playerHasRole("builder") && inventoryRecords.length === 1) {
+            handleSpecialDrop("loungeRecordSlot", inventoryRecords[0]);
+            return;
+        }
+        showToast(
+            inventoryRecords.length > 1
+                ? "Välj en skiva genom att klicka på den i inventoryt."
+                : "Klicka på skivan i inventoryt eller dra den till skivspelaren."
+        );
         return;
     }
 
