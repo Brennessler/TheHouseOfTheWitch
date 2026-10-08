@@ -4904,7 +4904,7 @@ function isMessengerSpiritPlayer() {
 
 function syncMessengerRelay() {
     if (!messengerRelayEl) return;
-    const enabled = isFourPlayerGame() && Boolean(messengerPlayerId());
+    const enabled = isFourPlayerGame();
     document.body.classList.toggle("messenger-available", enabled);
     document.getElementById("messengerRelayLabel").textContent =
         playerHasRole("messenger") ? "Skicka vidare" : "Till Budbäraren";
@@ -5540,6 +5540,7 @@ async function putRecordOnPlayer(record, sourceData) {
 
     recordTransactionInProgress = true;
     const playerId = String(playerState.id);
+    const recordHeldLocally = sourceData.source === "inventory" && inventory.has(record);
     const readyAt = Date.now() + 5000;
     try {
         const result = await window.firebase.database()
@@ -5570,6 +5571,9 @@ async function putRecordOnPlayer(record, sourceData) {
                     const playerInventory = Array.isArray(currentPlayer?.inventory)
                         ? [...currentPlayer.inventory]
                         : [];
+                    if (!playerInventory.includes(record) && recordHeldLocally) {
+                        playerInventory.push(record);
+                    }
                     const itemIndex = playerInventory.indexOf(record);
                     if (itemIndex < 0) return;
                     playerInventory.splice(itemIndex, 1);
@@ -7531,7 +7535,11 @@ function handleMessengerRelayDrop(event) {
         return;
     }
     if (!isFourPlayerGame() || !messengerPlayerId()) {
-        showToast("Budbäraren är inte tillgänglig.");
+        showToast(
+            isFourPlayerGame()
+                ? "Budbäraren har inte hämtat väskan ännu."
+                : "Budbäraren är inte tillgänglig."
+        );
         return;
     }
     if (playerHasRole("messenger")) {
