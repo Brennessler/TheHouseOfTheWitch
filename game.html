@@ -4471,7 +4471,15 @@ const firebaseConnectionMessageEl = document.getElementById("firebaseConnectionM
 let firebaseConnected = false;
 let firebaseInitialized = false;
 let firebaseFailureMessage = null;
+let firebaseServerTimeOffset = null;
 const firebaseReadyPromise = initializeFirebaseSharedStore();
+
+function getFirebaseServerTime() {
+    if (!Number.isFinite(firebaseServerTimeOffset)) {
+        throw new Error("Firebase server time is not available.");
+    }
+    return Date.now() + firebaseServerTimeOffset;
+}
 
 function updateFirebaseConnectionOverlay() {
     const message = firebaseFailureMessage ||
@@ -4525,11 +4533,24 @@ const TRANSACTION_ONLY_LOUNGE_FIELDS = new Set([
     "closeEyesReadyAt"
 ]);
 
-function mergeFirebaseState(current, incoming, previous, path = "") {
+const TRANSACTION_ONLY_KITCHEN_FIELDS = new Set([
+    "kettleIngredients",
+    "kettleIngredientOwners",
+    "kettleTimerEndsAt",
+    "kettlePotion",
+    "kettleExploded",
+    "kettleExplosionId",
+    "kettleExplosionReturns"
+]);
+
+function mergeFirebaseState(current, incoming, previous, path = "", { allowKettleState = false } = {}) {
     if (JSON.stringify(incoming) === JSON.stringify(previous)) return current;
     const isObject = value => value && typeof value === "object" && !Array.isArray(value);
+    const matchesPrevious = (value, baseline) =>
+        JSON.stringify(value ?? null) === JSON.stringify(baseline ?? null);
 
-    if (Array.isArray(incoming) && Array.isArray(previous)) {
+    if (Array.isArray(incoming) && (Array.isArray(previous) || previous == null)) {
+        previous = previous || [];
         const isSameItem = (left, right) => JSON.stringify(left) === JSON.stringify(right);
         const removed = previous.filter(item => !incoming.some(nextItem => isSameItem(item, nextItem)));
         const merged = Array.isArray(current)
@@ -4551,6 +4572,35 @@ function mergeFirebaseState(current, incoming, previous, path = "") {
         keys.forEach(field => {
             const fieldPath = path ? `${path}.${field}` : field;
             if (path === "lounge" && TRANSACTION_ONLY_LOUNGE_FIELDS.has(field)) return;
+            if (path === "kitchen" && TRANSACTION_ONLY_KITCHEN_FIELDS.has(field)) {
+                if (allowKettleState) {
+                    if (incoming[field] == null) delete merged[field];
+                    else merged[field] = incoming[field];
+                }
+                return;
+            }
+            if (path === "lounge" && field === "sharedRevision") {
+                merged[field] = Math.max(Number(current?.[field]) || 0, Number(incoming[field]) || 0);
+                return;
+            }
+            if (path === "lounge" && field === "sharedFieldRevisions") {
+                const revisions = { ...(current?.[field] || {}) };
+                Object.entries(incoming[field] || {}).forEach(([name, revision]) => {
+                    revisions[name] = Math.max(Number(revisions[name]) || 0, Number(revision) || 0);
+                });
+                merged[field] = revisions;
+                return;
+            }
+            if (path === "lounge" && SHARED_LOUNGE_STATE_FIELDS.includes(field)) {
+                const incomingRevision = Number(incoming.sharedFieldRevisions?.[field]) || 0;
+                const currentRevision = Number(current?.sharedFieldRevisions?.[field]) || 0;
+                if (incomingRevision < currentRevision) return;
+                if (incomingRevision > currentRevision && field !== "roles" && !Array.isArray(incoming[field])) {
+                    if (incoming[field] == null) delete merged[field];
+                    else merged[field] = incoming[field];
+                    return;
+                }
+            }
 
             const hadPrevious = Object.prototype.hasOwnProperty.call(previousObject, field);
             const hasIncoming = Object.prototype.hasOwnProperty.call(incoming, field);
@@ -4561,7 +4611,8 @@ function mergeFirebaseState(current, incoming, previous, path = "") {
                         merged[field],
                         incoming[field],
                         previousObject[field],
-                        fieldPath
+                        fieldPath,
+                        { allowKettleState }
                     );
                 }
                 return;
@@ -4572,17 +4623,25 @@ function mergeFirebaseState(current, incoming, previous, path = "") {
                     delete merged[field];
                 }
             } else if (incoming[field] === null) {
-                delete merged[field];
+                if (matchesPrevious(merged[field], previousObject[field])) delete merged[field];
             } else if (!hadPrevious) {
-                if (!hasCurrent) merged[field] = incoming[field];
+                if (isObject(incoming[field]) || Array.isArray(incoming[field])) {
+                    merged[field] = mergeFirebaseState(
+                        merged[field], incoming[field], undefined, fieldPath, { allowKettleState }
+                    );
+                } else if (!hasCurrent) {
+                    merged[field] = incoming[field];
+                }
             } else if (JSON.stringify(incoming[field]) !== JSON.stringify(previousObject[field])) {
-                merged[field] = mergeFirebaseState(merged[field], incoming[field], previousObject[field], fieldPath);
+                merged[field] = mergeFirebaseState(
+                    merged[field], incoming[field], previousObject[field], fieldPath, { allowKettleState }
+                );
             }
         });
         return merged;
     }
 
-    return incoming;
+    return matchesPrevious(current, previous) ? incoming : current;
 }
 
 function mergeFirebaseLobby(current, incoming, previous) {
@@ -4654,7 +4713,7 @@ function mergeFirebaseLobby(current, incoming, previous) {
     return merged;
 }
 
-function writeFirebaseValue(key, value, previousValue) {
+function writeFirebaseValue(key, value, previousValue, options = {}) {
     const path = firebasePathForStorageKey(key);
     if (!path) return Promise.resolve(false);
     if (!firebaseConnected || !firebaseInitialized || firebaseRoomErrors.size) {
@@ -4696,7 +4755,7 @@ function writeFirebaseValue(key, value, previousValue) {
     const save = roomMatch
         ? reference.transaction(current => roomMatch[2] === "lobby"
             ? mergeFirebaseLobby(current, parsedValue, previousData)
-            : mergeFirebaseState(current, parsedValue, previousData, ""))
+            : mergeFirebaseState(current, parsedValue, previousData, "", options))
         : reference.set(parsedValue);
     return save.then(() => true).catch(error => {
         showFirebaseError("Kunde inte spara speldata i Firebase. Kontrollera databasreglerna och anslutningen.", error);
@@ -4772,6 +4831,18 @@ async function initializeFirebaseSharedStore() {
 
         const database = window.firebase.database(app);
         await new Promise((resolve, reject) => {
+            const resolveWhenReady = () => {
+                if (firebaseConnected && Number.isFinite(firebaseServerTimeOffset)) resolve();
+            };
+            database.ref(".info/serverTimeOffset").on("value", snapshot => {
+                const offset = snapshot.val();
+                if (!Number.isFinite(offset)) {
+                    reject(new Error("Firebase returned an invalid server time offset."));
+                    return;
+                }
+                firebaseServerTimeOffset = offset;
+                resolveWhenReady();
+            }, reject);
             const connectionRef = database.ref(".info/connected");
             connectionRef.on("value", snapshot => {
                 firebaseConnected = snapshot.val() === true;
@@ -4780,7 +4851,7 @@ async function initializeFirebaseSharedStore() {
                     firebaseRoomSnapshots.clear();
                 }
                 updateFirebaseConnectionOverlay();
-                if (firebaseConnected) resolve();
+                resolveWhenReady();
             }, reject);
         });
 
@@ -4836,9 +4907,9 @@ function createFirebaseSharedStateStore() {
             }
             return firebaseSharedStateCache.get(key) ?? null;
         },
-        write(key, value) {
+        write(key, value, options = {}) {
             const previousValue = firebaseSharedStateCache.get(key) ?? null;
-            return writeFirebaseValue(key, value, previousValue);
+            return writeFirebaseValue(key, value, previousValue, options);
         },
         remove(key) {
             return writeFirebaseValue(key, null);
@@ -4935,6 +5006,7 @@ function assignLoungeRole(role) {
     if (playerState.role === role) {
         if (!loungeState.roles[role]) {
             loungeState.roles[role] = playerState.id;
+            markSharedLoungeStateChanged();
             saveWorldState();
         }
         return true;
@@ -5545,7 +5617,7 @@ async function putRecordOnPlayer(record, sourceData) {
     recordTransactionInProgress = true;
     const playerId = String(playerState.id);
     const recordHeldLocally = sourceData.source === "inventory" && inventory.has(record);
-    const readyAt = Date.now() + 5000;
+    const readyAt = getFirebaseServerTime() + 5000;
     try {
         const result = await window.firebase.database()
             .ref(`rooms/${activeLobbyId}`)
@@ -5553,7 +5625,6 @@ async function putRecordOnPlayer(record, sourceData) {
                 const currentLounge = current?.world?.lounge;
                 if (!currentLounge || typeof currentLounge !== "object" ||
                     currentLounge.recordOnPlayer ||
-                    Number(currentLounge.roles?.builder) !== Number(playerState.id) ||
                     !currentLounge.listenerSeatedBy) return;
 
                 const world = { ...(current.world || {}) };
@@ -5611,7 +5682,7 @@ async function putRecordOnPlayer(record, sourceData) {
                         ...Object.values(sharedFieldRevisions).map(value => Number(value) || 0)
                     );
                     const revision = Math.max(
-                        Date.now() * 10 + (Number(playerState.id) || 0),
+                        getFirebaseServerTime() * 10 + (Number(playerState.id) || 0),
                         (Number(currentLounge.sharedRevision) || 0) + 1,
                         latestFieldRevision + 1
                     );
@@ -5627,6 +5698,8 @@ async function putRecordOnPlayer(record, sourceData) {
             const currentLounge = result.snapshot.val()?.world?.lounge;
             if (currentLounge?.recordOnPlayer) {
                 showToast("Ta först bort skivan som redan sitter i spelaren.");
+            } else if (!currentLounge?.listenerSeatedBy) {
+                showToast("Tolken måste sitta i fåtöljen innan skivan sätts i.");
             } else {
                 showToast("Skivan kunde inte flyttas från sin nuvarande plats.");
             }
@@ -5696,7 +5769,7 @@ async function takeRecordFromPlayer(record, destination = "inventory", surfaceId
                         ...Object.values(sharedFieldRevisions).map(value => Number(value) || 0)
                     );
                     revision = Math.max(
-                        Date.now() * 10 + (Number(playerState.id) || 0),
+                        getFirebaseServerTime() * 10 + (Number(playerState.id) || 0),
                         revision + 1,
                         latestFieldRevision + 1
                     );
@@ -5845,7 +5918,17 @@ function markSharedLoungeStateChanged() {
     }
     const currentRevision = Number(loungeState.sharedRevision) || 0;
     const latestRevision = Number(latestLounge?.sharedRevision) || 0;
-    const revision = Math.max(Date.now() * 10 + Number(playerState.id), latestRevision + 1, currentRevision + 1);
+    const latestFieldRevision = Math.max(
+        0,
+        ...Object.values(loungeState.sharedFieldRevisions).map(value => Number(value) || 0),
+        ...Object.values(latestLounge?.sharedFieldRevisions || {}).map(value => Number(value) || 0)
+    );
+    const revision = Math.max(
+        getFirebaseServerTime() * 10 + Number(playerState.id),
+        latestRevision + 1,
+        currentRevision + 1,
+        latestFieldRevision + 1
+    );
     changedFields.forEach(field => {
         loungeState.sharedFieldRevisions[field] = revision;
     });
@@ -5864,7 +5947,7 @@ function captureSharedLoungeState() {
 
 sharedLoungeBaseline = captureSharedLoungeState();
 
-function saveWorldState() {
+function saveWorldState({ allowKettleState = false } = {}) {
     let latestLounge = null;
     try {
         latestLounge = JSON.parse(sharedStateStore.read(WORLD_STATE_KEY) || "{}").lounge || null;
@@ -5902,7 +5985,7 @@ function saveWorldState() {
         raven: worldState.raven,
         hall: worldState.hall,
         lounge: worldState.lounge
-    }));
+    }), { allowKettleState });
     sharedLoungeBaseline = captureSharedLoungeState();
 }
 
@@ -7056,7 +7139,7 @@ function returnKettleIngredientsToContributor() {
 async function triggerKettleExplosion() {
     const expectedTimerEnd = Number(kitchenState.kettleTimerEndsAt);
     if (kettleExplosionClaimPending || kitchenState.kettleExploded ||
-        !expectedTimerEnd || expectedTimerEnd > Date.now()) return;
+        !expectedTimerEnd || expectedTimerEnd > getFirebaseServerTime()) return;
     if (!activeLobbyId || !firebaseConnected || !firebaseInitialized) return;
 
     kettleExplosionClaimPending = true;
@@ -7066,7 +7149,7 @@ async function triggerKettleExplosion() {
             .transaction(current => {
                 if (!current || current.kettleExploded || current.kettlePotion ||
                     Number(current.kettleTimerEndsAt) !== expectedTimerEnd ||
-                    Number(current.kettleTimerEndsAt) > Date.now()) return;
+                    Number(current.kettleTimerEndsAt) > getFirebaseServerTime()) return;
 
                 const explosionId = (Number(current.kettleExplosionId) || 0) + 1;
                 const owners = { ...(current.kettleIngredientOwners || {}) };
@@ -7126,7 +7209,7 @@ async function addKettleIngredient(item) {
                     kettleIngredients: ingredients,
                     kettleIngredientOwners: owners,
                     kettlePotion: potionComplete,
-                    kettleTimerEndsAt: potionComplete ? null : Date.now() + 5000
+                    kettleTimerEndsAt: potionComplete ? null : getFirebaseServerTime() + 5000
                 };
             });
 
@@ -7234,7 +7317,8 @@ function tickKettleTimer() {
         return;
     }
 
-    const remainingMs = kitchenState.kettleTimerEndsAt - Date.now();
+    if (!firebaseConnected || !firebaseInitialized) return;
+    const remainingMs = kitchenState.kettleTimerEndsAt - getFirebaseServerTime();
 
     if (remainingMs <= 0) {
         kettleTimerDisplayEl.classList.remove("visible");
@@ -8288,10 +8372,10 @@ function handleAction(action) {
     if (actions[action]) actions[action]();
 }
 
-function refreshScene({ persist = false } = {}) {
+function refreshScene({ persist = false, persistWorld = true } = {}) {
     goToScene(
         scenes[playerState.scene] ? playerState.scene : currentScene,
-        { persist }
+        { persist, persistWorld }
     );
 }
 
@@ -8576,7 +8660,7 @@ function startSpiritDecisionTimeout(countdown) {
     }
 }
 
-function updateSpiritDecisionCountdown(sceneId) {
+function updateSpiritDecisionCountdown(sceneId, { persist = true } = {}) {
     const config = SPIRIT_DECISION_SCENES[sceneId];
     let countdown = loungeState.spiritDecisionCountdown;
 
@@ -8584,7 +8668,8 @@ function updateSpiritDecisionCountdown(sceneId) {
         if (
             countdown &&
             countdown.scene !== sceneId &&
-            isSpiritDecisionTimerOwner()
+            isSpiritDecisionTimerOwner() &&
+            persist
         ) {
             clearSpiritDecisionCountdown({ completed: false });
         } else {
@@ -8594,7 +8679,7 @@ function updateSpiritDecisionCountdown(sceneId) {
     }
 
     if (countdown?.scene !== sceneId) {
-        if (!isSpiritDecisionTimerOwner()) {
+        if (!persist || !isSpiritDecisionTimerOwner()) {
             removeSpiritDecisionCountdownDisplay();
             return;
         }
@@ -9084,7 +9169,7 @@ const SPIRIT_SWAMP19_MONSTER_INTERVALS = SPIRIT_SWAMP19_MONSTER_POSITIONS
     .slice(1)
     .map((_, index) => (index < 9 ? 1000 : 500));
 
-async function startSpiritSwamp19Chase() {
+async function startSpiritSwamp19Chase({ persist = true } = {}) {
     if (
         loungeState.spiritBanished ||
         currentScene !== "spiritSwamp19" ||
@@ -9097,9 +9182,11 @@ async function startSpiritSwamp19Chase() {
     const token = spiritSequenceToken;
     spiritSwamp19ChaseToken = token;
 
-    loungeState.spiritCrucifixReady = false;
-    markSharedLoungeStateChanged();
-    saveWorldState();
+    if (persist) {
+        loungeState.spiritCrucifixReady = false;
+        markSharedLoungeStateChanged();
+        saveWorldState();
+    }
 
     const stage = document.createElement("div");
     stage.className = "spirit-swamp19-monster";
@@ -9323,10 +9410,19 @@ const SPIRIT_SCENE_INDEX = new Map(SPIRIT_SCENE_ORDER.map((id, index) => [id, in
 const OUIJA_HINT_LOOKAHEAD_STEPS = 3;
 
 function getOuijaHintScene() {
+    if ((!isActiveSpiritTraveler() || isSpiritCoopMember()) &&
+        SPIRIT_SCENE_IDS.has(loungeState.spiritSharedScene)) {
+        return loungeState.spiritSharedScene;
+    }
     if (SPIRIT_SCENE_IDS.has(currentScene)) return currentScene;
-    return SPIRIT_SCENE_IDS.has(loungeState.spiritSharedScene)
-        ? loungeState.spiritSharedScene
-        : currentScene;
+    if (SPIRIT_SCENE_IDS.has(loungeState.spiritSharedScene)) return loungeState.spiritSharedScene;
+    if (loungeState.builderDead && !loungeState.spiritReturning &&
+        !loungeState.spiritBanished && !loungeState.messengerRevived &&
+        spiritPlayerIds().includes(Number(latestSpiritVisionState?.spiritPlayerId)) &&
+        SPIRIT_SCENE_IDS.has(latestSpiritVisionState?.sceneId)) {
+        return latestSpiritVisionState.sceneId;
+    }
+    return currentScene;
 }
 
 function updateOuijaLetterHints(sceneId) {
@@ -9929,6 +10025,9 @@ function subscribeToSpiritVision(callback) {
 function renderSpiritVision(payload) {
 
     latestSpiritVisionState = payload;
+    if (document.getElementById("ouijaBoardOverlay").classList.contains("visible")) {
+        updateOuijaLetterHints(getOuijaHintScene());
+    }
 
     if (!spiritVisionOverlayEl.classList.contains("visible")) {
         return;
@@ -10554,7 +10653,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
 
     if (special === "loungeRecordSlot") {
         const inventoryRecords = [...inventory].filter(isLoungeRecord);
-        if (playerHasRole("builder") && inventoryRecords.length === 1) {
+        if (inventoryRecords.length === 1) {
             handleSpecialDrop("loungeRecordSlot", inventoryRecords[0]);
             return;
         }
@@ -10888,7 +10987,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
     }
 
     if (special === "loungeRecordSlot") {
-        if (!playerHasRole("builder") || !isLoungeRecord(draggedItem)) {
+        if (!isLoungeRecord(draggedItem)) {
             showToast("Dra en skiva från avlastningsytan eller inventoryn till spelaren.");
             return;
         }
@@ -11816,7 +11915,7 @@ function fadeOutHotspot(element) {
     element.addEventListener("transitionend", handleTransitionEnd);
 }
 
-function goToScene(id, { debugNavigation = false, transition = true, persist = true } = {}) {
+function goToScene(id, { debugNavigation = false, transition = true, persist = true, persistWorld = persist } = {}) {
     const data = scenes[id];
         if (
         !SPIRIT_SCENE_IDS.has(id) ||
@@ -11853,7 +11952,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
     ) {
         loungeState.listenerSeatedBy = null;
         loungeState.listenerSeatSession = null;
-        if (persist) saveWorldState();
+        if (persistWorld) saveWorldState();
     }
 
     if (currentScene === "kitchenRaven" && id !== "kitchenRaven") {
@@ -11863,7 +11962,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
     // Fällan hinner fångas medan spelarna är ute i dörrscenen
     if (id === "kitchenDoor" && kitchenState.trapState === "cheese") {
         kitchenState.trapState = "ratTail";
-        if (persist) saveWorldState();
+        if (persistWorld) saveWorldState();
         playSnapSound();
     }
 
@@ -11987,7 +12086,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
 
             if (spot.special === "loungeCloseEyes") {
                 el.classList.add("listening-close-eyes");
-                const remaining = Math.max(0, (loungeState.closeEyesReadyAt || 0) - Date.now());
+                const remaining = Math.max(0, (loungeState.closeEyesReadyAt || 0) - getFirebaseServerTime());
                 if (remaining > 0) {
                     el.classList.add("listening-close-eyes-hidden");
                     clearTimeout(closeEyesRevealTimer);
@@ -12270,16 +12369,16 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         const previousScene = currentScene;
         currentScene = id;
         let sharedSpiritStateChanged = false;
-        if (isActiveSpiritTraveler() && loungeState.spiritSharedScene !== id) {
+        if (persistWorld && isActiveSpiritTraveler() && loungeState.spiritSharedScene !== id) {
             loungeState.spiritSharedScene = id;
             sharedSpiritStateChanged = true;
         }
-        if (isActiveSpiritTraveler() && loungeState.spiritSharedFrameImage) {
+        if (persistWorld && isActiveSpiritTraveler() && loungeState.spiritSharedFrameImage) {
             loungeState.spiritSharedFrameImage = null;
             sharedSpiritStateChanged = true;
         }
         if (sharedSpiritStateChanged) markSharedLoungeStateChanged();
-        updateSpiritDecisionCountdown(id);
+        updateSpiritDecisionCountdown(id, { persist: persistWorld });
         if (
             id === "spiritSwamp19" &&
             !loungeState.spiritBanished &&
@@ -12287,9 +12386,9 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
             (spiritSwamp19ChaseToken === null ||
                 !sceneEl.querySelector(".spirit-swamp19-monster"))
         ) {
-            startSpiritSwamp19Chase();
+            startSpiritSwamp19Chase({ persist: persistWorld });
         }
-        if (initialSceneRendered && previousScene !== id) {
+        if (persistWorld && initialSceneRendered && previousScene !== id) {
             handleBuilderCough();
             if (id === "spiritWoods6") {
                 setTimeout(() => {
@@ -12298,7 +12397,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
             }
         }
         initialSceneRendered = true;
-        if (id === "spiritTunnelTurn3" && !loungeState.spiritRunActive) {
+        if (persistWorld && id === "spiritTunnelTurn3" && !loungeState.spiritRunActive) {
             loungeState.spiritRunActive = true;
             markSharedLoungeStateChanged();
             saveWorldState();
@@ -12307,6 +12406,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         renderSpiritEquipmentOverlays(id);
         updateOuijaLetterHints(getOuijaHintScene());
                 if (
+            persistWorld &&
             typeof SPIRIT_SCENE_IDS !== "undefined" &&
             SPIRIT_SCENE_IDS.has(id)
         ) {
@@ -12340,7 +12440,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
 
         sceneEl.classList.remove("fading");
 
-        saveWorldState();
+        if (persistWorld) saveWorldState();
         if (environment) updateDebugPanelForScene();
         updateKettleAmbience();
         updateTvAmbience();
@@ -13225,6 +13325,7 @@ function enterGameFromLobby() {
     playerState.name = joinedPlayer?.name || playerState.name;
     playerState.team = activeLobbyId;
     loadWorldState();
+    latestSpiritVisionState = JSON.parse(sharedStateStore.read(SPIRIT_VISION_STATE_KEY) || "null");
     clearStaleListenerSeat();
     normalizePlayerInventoryCapacity();
     updateInventory();
@@ -13654,6 +13755,9 @@ debugGivePotionBtn.addEventListener("click", () => {
     kitchenState.kettleBoiling = true;
     kitchenState.kettlePotion = true;
     kitchenState.kettleIngredients = new Set(["crowFeather", "moonDust", "ratTail"]);
+    kitchenState.kettleTimerEndsAt = null;
+    kitchenState.kettleExploded = false;
+    saveWorldState({ allowKettleState: true });
     addItem("purplePotion");
     showToast("Debug: potion given.");
 });
@@ -13763,7 +13867,7 @@ function setKitchenCompletedDebugState() {
     currentScene = "upperHallway";
 
     markSharedLoungeStateChanged();
-    saveWorldState();
+    saveWorldState({ allowKettleState: true });
     savePlayerState();
     updateInventory();
     refreshScene();
@@ -13927,7 +14031,8 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
     document.getElementById("ouijaBoardOverlay").classList.remove("visible");
     document.body.classList.remove("ouija-board-open");
     messageEl.classList.remove("visible");
-    saveWorldState();
+    markSharedLoungeStateChanged();
+    saveWorldState({ allowKettleState: true });
     savePlayerState();
     updateInventory();
     goToScene(startScene);
@@ -14049,7 +14154,7 @@ function resetWorldState() {
     messageEl.classList.remove("visible");
 
     markSharedLoungeStateChanged();
-    saveWorldState();
+    saveWorldState({ allowKettleState: true });
     if (activeLobbyId && currentLobbyRoom) {
         const resetLobbyRoom = readLobbyRoom(activeLobbyId);
         Object.values(resetLobbyRoom.players).forEach(player => {
@@ -14294,7 +14399,7 @@ sceneEl.addEventListener("mouseup", (e) => {
 let resizeTimer;
 window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => refreshScene(), 150);
+    resizeTimer = setTimeout(() => refreshScene({ persistWorld: false }), 150);
 });
 
 // Synkar delat lagtillstånd live mellan flikar/spelare via aktuell lagringsadapter.
@@ -14353,11 +14458,19 @@ sharedStateStore.subscribe(event => {
 
     if (!gameStarted) return;
 
+    if (event.key === SPIRIT_VISION_STATE_KEY) {
+        latestSpiritVisionState = event.newValue ? JSON.parse(event.newValue) : null;
+        if (document.getElementById("ouijaBoardOverlay").classList.contains("visible")) {
+            updateOuijaLetterHints(getOuijaHintScene());
+        }
+        return;
+    }
+
     if (event.key === `${PLAYER_STATE_KEY_PREFIX}${playerState.id}` && event.newValue) {
         loadPlayerState();
         currentScene = scenes[playerState.scene] ? playerState.scene : startScene;
         updateInventory({ persist: false });
-        refreshScene();
+        refreshScene({ persistWorld: false });
     }
 
     if (event.key === WORLD_STATE_KEY) {
@@ -14373,7 +14486,7 @@ sharedStateStore.subscribe(event => {
             }
             setTimeout(tryResolveSpiritActionVote, 250);
         } else {
-            refreshScene();
+            refreshScene({ persistWorld: false });
         }
         syncHallHomeEnding();
         syncLoungeAudio();
