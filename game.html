@@ -3882,7 +3882,7 @@ const scenes = {
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "lounge", label: "Tillbaka" },
             { x: 64.6, y: 50, w: 10.4, h: 16.9, target: "loungeSofaCushions", requiresState: () => !pickedUpItems.has("remote"), label: "Titta mellan dynorna" },
             { x: 19.6, y: 58.1, w: 48, h: 32.4, target: "loungeSofaSeated", cursor: "remote", requiresState: () => playerHasRole("watcher"), label: "Sätt dig i soffan" },
-            { x: 7.3, y: 31.2, w: 22.7, h: 23.7, item: "albumCover01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v02.webp", label: "Albumomslag" },
+            { x: 7.3, y: 31.2, w: 22.7, h: 23.7, item: "albumCover01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_AlbumCover01_v02.PNG", label: "Albumomslag" },
             { x: 49.1, y: 0.8, w: 5.2, h: 6.9, item: "battery01", icon: "assets/interactables/Lounge/WH_AST_LOUNGE_Battery01_v01.webp", label: "Batteri" },
             { x: 88, y: 26, w: 11, h: 34, target: "loungeBehindTV", requiresState: () => playerHasRole("builder"), label: "Gå bakom TV:n" }
         ]
@@ -5808,9 +5808,10 @@ const SHARED_LOUNGE_STATE_FIELDS = [
     "spiritRopeReady",
     "spiritCrucifixReady",
     "spiritRunActive",
-    "albumShelfSlots",
-    "puzzleSolved",
-    "powerCut",
+    "dumpspotItems",
+    "recordOnPlayer",
+    "playingRecord",
+    "closeEyesReadyAt",
     "dumpspotItems"
 ];
 
@@ -10336,7 +10337,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
 
     if (special === "loungeHamsterKey") {
         if (!playerHasRole("builder")) {
-            showToast("Åhh han sover så sött, jag vågar inte störa honom. Jag har ju inte ens en nyckelknippa.");
+            showToast("Bara Byggaren kan nå nyckeln vid hamsterhjulet.");
             return;
         }
         if (loungeState.builderDead || loungeState.builderRevived) return;
@@ -10446,19 +10447,18 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
                 return;
             }
             if (loungeState.puzzleSolved) {
-                showToast("Ypperligt organiserade skivor, verkligen ett nöje för ögat.");
+                showToast("Albumet sitter fast nu.");
                 return;
             }
             if (!tryAddInventoryItem(placedSet)) return;
             delete loungeState.albumShelfSlots[slotId];
-            markSharedLoungeStateChanged();
             updateInventory();
             saveWorldState();
             refreshScene();
             showToast("Du tog ut albumet ur facket.");
             return;
         }
-        showToast("De ser ut att vara organiserade på ett ganska.. sätt.");
+        showToast("Ypperligt organiserade skivor, verkligen ett nöje för ögat.");
         return;
     }
 
@@ -10757,7 +10757,6 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
         }
         inventory.delete(draggedItem);
         loungeState.albumShelfSlots[slotId] = draggedItem;
-        markSharedLoungeStateChanged();
         updateInventory();
         saveWorldState();
         refreshScene();
