@@ -3471,14 +3471,17 @@ const SPIRIT_HOTSPOTS = {
     ],
 
     spiritSwamp17: [
-        spiritHotspot(
+        {
+            ...spiritHotspot(
             "spiritReturnToCabin",
             "Stig till stuga",
             25,
             20,
             50,
             65
-        )
+            ),
+            requiresState: () => loungeState.spiritBanished
+        }
     ]
 };
 
@@ -5423,6 +5426,11 @@ function handleBuilderCough(count) {
     }
 }
 
+function isSeanceRoomView(sceneId = currentScene) {
+    return ["seanceRoom", "seanceCrystalBall", "seanceOuijaBoard", "seancePortraits", "seanceRoom_floor"]
+        .includes(sceneId);
+}
+
 function triggerSpiritBanishEffects() {
     if (spiritVisionOverlayEl.classList.contains("visible")) {
         closeSpiritVision();
@@ -5431,7 +5439,7 @@ function triggerSpiritBanishEffects() {
     document.getElementById("ouijaBoardOverlay").classList.remove("visible");
     document.body.classList.remove("ouija-board-open");
 
-    if (currentScene !== "seanceRoom") return;
+    if (!isSeanceRoomView()) return;
 
     if (!isSpiritCoopMember()) playDistantExplosionSound();
 
@@ -6989,7 +6997,7 @@ let kassandraFallAnimationRunning = false;
 
 function startKassandraFallAfterBanish(showWhiteFade = false) {
     if (
-        currentScene !== "seanceRoom" ||
+        !isSeanceRoomView() ||
         !loungeState.spiritBanished ||
         loungeState.seancePortraitFallen ||
         kassandraFallAnimationRunning
@@ -6998,9 +7006,22 @@ function startKassandraFallAfterBanish(showWhiteFade = false) {
     }
 
     kassandraFallAnimationRunning = true;
+    const fallLobbyId = activeLobbyId;
+    const completeFall = stage => {
+        stage?.remove();
+        kassandraFallAnimationRunning = false;
+        if (activeLobbyId !== fallLobbyId || !loungeState.spiritBanished) return;
+        if (!loungeState.seancePortraitFallen) {
+            loungeState.seancePortraitFallen = true;
+            markSharedLoungeStateChanged();
+            saveWorldState();
+        }
+        if (isSeanceRoomView()) playKassandraDropSound();
+        if (currentScene === "seanceRoom") refreshScene({ persistWorld: false });
+    };
     const beginFall = () => {
         if (currentScene !== "seanceRoom") {
-            kassandraFallAnimationRunning = false;
+            setTimeout(() => completeFall(), 1800);
             return;
         }
 
@@ -7013,21 +7034,7 @@ function startKassandraFallAfterBanish(showWhiteFade = false) {
         stage.appendChild(portrait);
         sceneEl.appendChild(stage);
 
-        setTimeout(() => {
-            if (!stage.isConnected || currentScene !== "seanceRoom") {
-                stage.remove();
-                kassandraFallAnimationRunning = false;
-                return;
-            }
-
-            stage.remove();
-            kassandraFallAnimationRunning = false;
-            loungeState.seancePortraitFallen = true;
-            markSharedLoungeStateChanged();
-            saveWorldState();
-            playKassandraDropSound();
-            refreshScene();
-        }, 1800);
+        setTimeout(() => completeFall(stage), 1800);
     };
 
     if (!showWhiteFade) {
@@ -7039,7 +7046,7 @@ function startKassandraFallAfterBanish(showWhiteFade = false) {
     whiteOverlay.classList.remove("fading-out");
     whiteOverlay.classList.add("kassandra-white-transition", "visible");
     setTimeout(() => {
-        if (currentScene !== "seanceRoom") {
+        if (activeLobbyId !== fallLobbyId || !loungeState.spiritBanished) {
             whiteOverlay.classList.remove("visible", "fading-out", "kassandra-white-transition");
             kassandraFallAnimationRunning = false;
             return;
@@ -10406,6 +10413,11 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         return;
     }
 
+    if (special === "spiritReturnToCabin" && !loungeState.spiritBanished) {
+        showToast("Jag måste först besegra monstret.");
+        return;
+    }
+
     if (isSpiritCoopMember() && special.startsWith("spirit") && !spiritVoteApproved) {
         const label = spot.label || ({
             spiritTunnelAxe: "Yxa",
@@ -12084,7 +12096,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
             }
         }
         sceneEl
-            .querySelectorAll(".hotspot:not(.is-fading-out), .dumpspot-item, .spirit-equipment-stage, .spirit-equipment-overlay, .kassandra-fall-stage")
+            .querySelectorAll(".hotspot:not(.is-fading-out), .dumpspot-item, .spirit-equipment-stage, .spirit-equipment-overlay")
             .forEach(el => el.remove());
 
         const hotspots = typeof data.hotspots === "function" ? data.hotspots() : data.hotspots;
@@ -12510,7 +12522,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
             renderLoungeRecordOnPlayer();
         }
         renderWatcherRemote();
-        if (id === "seanceRoom" && loungeState.spiritBanished && !loungeState.seancePortraitFallen) {
+        if (isSeanceRoomView(id) && loungeState.spiritBanished && !loungeState.seancePortraitFallen) {
             startKassandraFallAfterBanish();
         }
 
@@ -14642,10 +14654,10 @@ sharedStateStore.subscribe(event => {
             return;
         }
         if (notice.type === "spiritBanish") {
-            if (notice.playerId !== playerState.id && currentScene === "seanceRoom") {
+            if (notice.playerId !== playerState.id && isSeanceRoomView()) {
                 triggerSpiritBanishEffects();
                 setTimeout(() => {
-                    if (currentScene === "seanceRoom" && loungeState.spiritBanished) {
+                    if (isSeanceRoomView() && loungeState.spiritBanished) {
                         startKassandraFallAfterBanish(true);
                     }
                 }, 1500);
