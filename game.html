@@ -4187,11 +4187,13 @@ const scenes = {
             },
 
             {
-                x: 76,
-                y: 18,
-                w: 16,
-                h: 40,
+                x: 24.1,
+                y: 0.3,
+                w: 56.6,
+                h: 18.7,
+                cursor: "up",
                 target: "seancePortraits",
+                requiresState: () => !loungeState.seancePortraitFallen,
                 label: "Porträtt"
             }
         ]
@@ -6995,33 +6997,85 @@ function playKassandraDropSound() {
 
 let kassandraFallAnimationRunning = false;
 
-function startKassandraFallAfterBanish(showWhiteFade = false) {
+async function startKassandraFallAfterBanish(showWhiteFade = false) {
     if (
-        !isSeanceRoomView() ||
+        currentScene !== "seanceRoom" ||
         !loungeState.spiritBanished ||
         loungeState.seancePortraitFallen ||
-        kassandraFallAnimationRunning
+        kassandraFallAnimationRunning ||
+        !activeLobbyId || !firebaseConnected || !firebaseInitialized
     ) {
         return;
     }
 
     kassandraFallAnimationRunning = true;
     const fallLobbyId = activeLobbyId;
-    const completeFall = stage => {
-        stage?.remove();
-        kassandraFallAnimationRunning = false;
-        if (activeLobbyId !== fallLobbyId || !loungeState.spiritBanished) return;
-        if (!loungeState.seancePortraitFallen) {
-            loungeState.seancePortraitFallen = true;
-            markSharedLoungeStateChanged();
-            saveWorldState();
+    const claimId = crypto.randomUUID();
+    const reference = window.firebase.database().ref(`rooms/${fallLobbyId}/world/lounge`);
+    try {
+        const claim = await reference.transaction(lounge => {
+            if (!lounge?.spiritBanished || lounge.seancePortraitFallen ||
+                Number(lounge.seancePortraitFallClaim?.expiresAt) > getFirebaseServerTime()) return;
+            return {
+                ...lounge,
+                seancePortraitFallClaim: { id: claimId, expiresAt: getFirebaseServerTime() + 10000 }
+            };
+        });
+        if (!claim.committed) {
+            kassandraFallAnimationRunning = false;
+            const expiresAt = Number(claim.snapshot.val()?.seancePortraitFallClaim?.expiresAt);
+            if (expiresAt > getFirebaseServerTime()) {
+                setTimeout(() => {
+                    if (activeLobbyId === fallLobbyId && currentScene === "seanceRoom") {
+                        startKassandraFallAfterBanish();
+                    }
+                }, expiresAt - getFirebaseServerTime() + 200);
+            }
+            return;
         }
-        if (isSeanceRoomView()) playKassandraDropSound();
-        if (currentScene === "seanceRoom") refreshScene({ persistWorld: false });
+    } catch (error) {
+        kassandraFallAnimationRunning = false;
+        showFirebaseError("Kassandras porträttfall kunde inte startas.", error);
+        return;
+    }
+    const completeFall = async stage => {
+        stage?.remove();
+        const witnessed = Boolean(stage && currentScene === "seanceRoom" &&
+            activeLobbyId === fallLobbyId && loungeState.spiritBanished);
+        if (witnessed) playKassandraDropSound();
+        try {
+            const result = await reference.transaction(lounge => {
+                if (lounge?.seancePortraitFallClaim?.id !== claimId) return;
+                const next = { ...lounge };
+                delete next.seancePortraitFallClaim;
+                if (witnessed && lounge.spiritBanished) {
+                    next.seancePortraitFallen = true;
+                    const revision = Math.max(
+                        getFirebaseServerTime() * 10 + Number(playerState.id),
+                        (Number(lounge.sharedRevision) || 0) + 1,
+                        (Number(lounge.sharedFieldRevisions?.seancePortraitFallen) || 0) + 1
+                    );
+                    next.sharedFieldRevisions = { ...lounge.sharedFieldRevisions, seancePortraitFallen: revision };
+                    next.sharedRevision = revision;
+                }
+                return next;
+            });
+            if (activeLobbyId === fallLobbyId && result.committed) {
+                loungeState.seancePortraitFallen = Boolean(result.snapshot.val()?.seancePortraitFallen);
+            }
+        } catch (error) {
+            showFirebaseError("Kassandras porträttfall kunde inte sparas.", error);
+        } finally {
+            kassandraFallAnimationRunning = false;
+        }
+        if (activeLobbyId === fallLobbyId && currentScene === "seanceRoom") {
+            refreshScene({ persistWorld: false });
+        }
     };
     const beginFall = () => {
-        if (currentScene !== "seanceRoom") {
-            setTimeout(() => completeFall(), 1800);
+        if (currentScene !== "seanceRoom" || activeLobbyId !== fallLobbyId ||
+            !loungeState.spiritBanished) {
+            completeFall();
             return;
         }
 
@@ -7048,7 +7102,7 @@ function startKassandraFallAfterBanish(showWhiteFade = false) {
     setTimeout(() => {
         if (activeLobbyId !== fallLobbyId || !loungeState.spiritBanished) {
             whiteOverlay.classList.remove("visible", "fading-out", "kassandra-white-transition");
-            kassandraFallAnimationRunning = false;
+            completeFall();
             return;
         }
         whiteOverlay.classList.add("fading-out");
@@ -12522,7 +12576,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
             renderLoungeRecordOnPlayer();
         }
         renderWatcherRemote();
-        if (isSeanceRoomView(id) && loungeState.spiritBanished && !loungeState.seancePortraitFallen) {
+        if (id === "seanceRoom" && loungeState.spiritBanished && !loungeState.seancePortraitFallen) {
             startKassandraFallAfterBanish();
         }
 
@@ -14657,7 +14711,7 @@ sharedStateStore.subscribe(event => {
             if (notice.playerId !== playerState.id && isSeanceRoomView()) {
                 triggerSpiritBanishEffects();
                 setTimeout(() => {
-                    if (isSeanceRoomView() && loungeState.spiritBanished) {
+                    if (currentScene === "seanceRoom" && loungeState.spiritBanished) {
                         startKassandraFallAfterBanish(true);
                     }
                 }, 1500);
