@@ -4384,6 +4384,7 @@ const worldState = {
         seancePortraitFallen: false,
         builderRevived: false,
         builderCoughCount: 0,
+        builderCoughNextAt: null,
         spiritAxeReady: false,
         spiritRopeReady: false,
         spiritCrucifixReady: false,
@@ -4530,7 +4531,9 @@ function firebasePathForStorageKey(key) {
 const TRANSACTION_ONLY_LOUNGE_FIELDS = new Set([
     "recordOnPlayer",
     "playingRecord",
-    "closeEyesReadyAt"
+    "closeEyesReadyAt",
+    "builderCoughCount",
+    "builderCoughNextAt"
 ]);
 
 const TRANSACTION_ONLY_KITCHEN_FIELDS = new Set([
@@ -4543,7 +4546,8 @@ const TRANSACTION_ONLY_KITCHEN_FIELDS = new Set([
     "kettleExplosionReturns"
 ]);
 
-function mergeFirebaseState(current, incoming, previous, path = "", { allowKettleState = false } = {}) {
+function mergeFirebaseState(current, incoming, previous, path = "", options = {}) {
+    const { allowKettleState = false, allowBuilderCoughState = false } = options;
     if (JSON.stringify(incoming) === JSON.stringify(previous)) return current;
     const isObject = value => value && typeof value === "object" && !Array.isArray(value);
     const matchesPrevious = (value, baseline) =>
@@ -4571,7 +4575,13 @@ function mergeFirebaseState(current, incoming, previous, path = "", { allowKettl
         const keys = new Set([...Object.keys(previousObject), ...Object.keys(incoming)]);
         keys.forEach(field => {
             const fieldPath = path ? `${path}.${field}` : field;
-            if (path === "lounge" && TRANSACTION_ONLY_LOUNGE_FIELDS.has(field)) return;
+            if (path === "lounge" && TRANSACTION_ONLY_LOUNGE_FIELDS.has(field)) {
+                if (allowBuilderCoughState && ["builderCoughCount", "builderCoughNextAt"].includes(field)) {
+                    if (incoming[field] == null) delete merged[field];
+                    else merged[field] = incoming[field];
+                }
+                return;
+            }
             if (path === "kitchen" && TRANSACTION_ONLY_KITCHEN_FIELDS.has(field)) {
                 if (allowKettleState) {
                     if (incoming[field] == null) delete merged[field];
@@ -4612,7 +4622,7 @@ function mergeFirebaseState(current, incoming, previous, path = "", { allowKettl
                         incoming[field],
                         previousObject[field],
                         fieldPath,
-                        { allowKettleState }
+                        options
                     );
                 }
                 return;
@@ -4627,14 +4637,14 @@ function mergeFirebaseState(current, incoming, previous, path = "", { allowKettl
             } else if (!hadPrevious) {
                 if (isObject(incoming[field]) || Array.isArray(incoming[field])) {
                     merged[field] = mergeFirebaseState(
-                        merged[field], incoming[field], undefined, fieldPath, { allowKettleState }
+                        merged[field], incoming[field], undefined, fieldPath, options
                     );
                 } else if (!hasCurrent) {
                     merged[field] = incoming[field];
                 }
             } else if (JSON.stringify(incoming[field]) !== JSON.stringify(previousObject[field])) {
                 merged[field] = mergeFirebaseState(
-                    merged[field], incoming[field], previousObject[field], fieldPath, { allowKettleState }
+                    merged[field], incoming[field], previousObject[field], fieldPath, options
                 );
             }
         });
@@ -5282,6 +5292,7 @@ function reviveBuilder() {
         spiritReturning: false,
         builderRevived: true,
         builderCoughCount: 0,
+        builderCoughNextAt: getFirebaseServerTime() + 2000,
         spiritRunActive: false,
         spiritCoopActive: false,
         spiritSharedScene: null,
@@ -5291,34 +5302,101 @@ function reviveBuilder() {
         spiritVoteResolvedToken: null
     });
     markSharedLoungeStateChanged();
-    saveWorldState();
+    saveWorldState({ allowBuilderCoughState: true });
     broadcastLoungeNotice(`${playerState.name} har återuppstått`);
     refreshScene();
     showResurrectionMessage();
 }
 
-function handleBuilderCough() {
-    if (
+let builderCoughPending = false;
+let builderCoughPausedAt = null;
+
+async function tickBuilderCough() {
+    if (!gameStarted || !activeLobbyId || builderCoughPending ||
         !loungeState.builderRevived ||
-        playerState.id !== loungeState.builderDeadId ||
-        (loungeState.builderCoughCount || 0) >= 3
-    ) {
+        Number(playerState.id) !== Number(loungeState.builderDeadId) ||
+        (Number(loungeState.builderCoughCount) || 0) >= 3) {
+        builderCoughPausedAt = null;
+        return;
+    }
+    if (!firebaseConnected || !firebaseInitialized) {
+        builderCoughPausedAt ??= getFirebaseServerTime();
         return;
     }
 
-    loungeState.builderCoughCount = (loungeState.builderCoughCount || 0) + 1;
-    markSharedLoungeStateChanged();
-    saveWorldState();
-    const coughAudioEl = playCoughSound(loungeState.builderCoughCount);
+    const now = getFirebaseServerTime();
+    const pausedFor = builderCoughPausedAt === null ? 0 : Math.max(0, now - builderCoughPausedAt);
+    const expectedCount = Number(loungeState.builderCoughCount) || 0;
+    const expectedNextAt = Number(loungeState.builderCoughNextAt) || 0;
+    if (!pausedFor && expectedNextAt > now) return;
+
+    builderCoughPending = true;
+    try {
+        const result = await window.firebase.database().ref(`rooms/${activeLobbyId}`)
+            .transaction(room => {
+                const lounge = room?.world?.lounge;
+                if (!lounge?.builderRevived ||
+                    Number(lounge.builderDeadId) !== Number(playerState.id) ||
+                    (Number(lounge.builderCoughCount) || 0) !== expectedCount ||
+                    (Number(lounge.builderCoughNextAt) || 0) !== expectedNextAt ||
+                    expectedCount >= 3) return;
+                const next = {
+                    ...room,
+                    world: { ...room.world, lounge: { ...lounge } }
+                };
+                if (pausedFor || !expectedNextAt) {
+                    next.world.lounge.builderCoughNextAt = expectedNextAt
+                        ? expectedNextAt + pausedFor
+                        : now + (expectedCount ? 5000 : 2000);
+                    return next;
+                }
+                if (expectedNextAt > getFirebaseServerTime()) return;
+                const count = expectedCount + 1;
+                next.world.lounge.builderCoughCount = count;
+                next.world.lounge.builderCoughNextAt = count < 3 ? getFirebaseServerTime() + 5000 : null;
+                if (count === 3) {
+                    const id = String(playerState.id);
+                    const savedPlayer = room.players?.[id];
+                    if (!savedPlayer) return;
+                    next.players = {
+                        ...room.players,
+                        [id]: {
+                            ...savedPlayer,
+                            inventory: [...new Set([...(savedPlayer.inventory || []), "toiletKey"])]
+                        }
+                    };
+                    next.world.pickedUpItems = [...new Set([...(room.world.pickedUpItems || []), "toiletKey"])];
+                }
+                return next;
+            });
+        if (pausedFor) builderCoughPausedAt = null;
+        if (!result.committed) return;
+        const room = result.snapshot.val();
+        const count = Number(room.world.lounge.builderCoughCount) || 0;
+        loungeState.builderCoughCount = count;
+        loungeState.builderCoughNextAt = room.world.lounge.builderCoughNextAt ?? null;
+        if (count > expectedCount) {
+            if (count === 3) {
+                inventory.add("toiletKey");
+                pickedUpItems.add("toiletKey");
+                updateInventory({ persist: false });
+            }
+            handleBuilderCough(count);
+        }
+    } catch (error) {
+        showFirebaseError("Hostningen och toanyckeln kunde inte sparas. Försöker igen efter återanslutning.", error);
+    } finally {
+        builderCoughPending = false;
+    }
+}
+
+setInterval(tickBuilderCough, 200);
+
+function handleBuilderCough(count) {
+    const coughAudioEl = playCoughSound(count);
     showToast("*host host*");
 
-    if (loungeState.builderCoughCount === 3) {
-        inventory.add("toiletKey");
-        pickedUpItems.add("toiletKey");
-        updateInventory();
-        savePlayerState();
-        saveWorldState();
-
+    if (count === 3) {
         let keyRevealed = false;
         const revealKey = () => {
             if (keyRevealed) return;
@@ -5887,7 +5965,6 @@ const SHARED_LOUNGE_STATE_FIELDS = [
     "spiritBanished",
     "seancePortraitFallen",
     "builderRevived",
-    "builderCoughCount",
     "spiritUnlockedChoices",
     "spiritFlashlightEquipped",
     "spiritAxeReady",
@@ -5947,7 +6024,7 @@ function captureSharedLoungeState() {
 
 sharedLoungeBaseline = captureSharedLoungeState();
 
-function saveWorldState({ allowKettleState = false } = {}) {
+function saveWorldState({ allowKettleState = false, allowBuilderCoughState = false } = {}) {
     let latestLounge = null;
     try {
         latestLounge = JSON.parse(sharedStateStore.read(WORLD_STATE_KEY) || "{}").lounge || null;
@@ -5985,7 +6062,7 @@ function saveWorldState({ allowKettleState = false } = {}) {
         raven: worldState.raven,
         hall: worldState.hall,
         lounge: worldState.lounge
-    }), { allowKettleState });
+    }), { allowKettleState, allowBuilderCoughState });
     sharedLoungeBaseline = captureSharedLoungeState();
 }
 
@@ -12389,7 +12466,6 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
             startSpiritSwamp19Chase({ persist: persistWorld });
         }
         if (persistWorld && initialSceneRendered && previousScene !== id) {
-            handleBuilderCough();
             if (id === "spiritWoods6") {
                 setTimeout(() => {
                     if (currentScene === "spiritWoods6") showToast("Skogen är tyst");
@@ -13867,7 +13943,7 @@ function setKitchenCompletedDebugState() {
     currentScene = "upperHallway";
 
     markSharedLoungeStateChanged();
-    saveWorldState({ allowKettleState: true });
+    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true });
     savePlayerState();
     updateInventory();
     refreshScene();
@@ -14008,7 +14084,8 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
         spiritBanished: startScene === "exterior",
         seancePortraitFallen: false,
         builderRevived: false,
-        builderCoughCount: 0
+        builderCoughCount: 0,
+        builderCoughNextAt: null
     });
     void updateLoungeRecordState({
         recordOnPlayer: null,
@@ -14032,7 +14109,7 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
     document.body.classList.remove("ouija-board-open");
     messageEl.classList.remove("visible");
     markSharedLoungeStateChanged();
-    saveWorldState({ allowKettleState: true });
+    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true });
     savePlayerState();
     updateInventory();
     goToScene(startScene);
@@ -14116,6 +14193,7 @@ function resetWorldState() {
         seancePortraitFallen: false,
         builderRevived: false,
         builderCoughCount: 0,
+        builderCoughNextAt: null,
         placedItems: { kitchenTable: [], loungeDesk: [] }
     });
     void updateLoungeRecordState({
@@ -14154,7 +14232,7 @@ function resetWorldState() {
     messageEl.classList.remove("visible");
 
     markSharedLoungeStateChanged();
-    saveWorldState({ allowKettleState: true });
+    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true });
     if (activeLobbyId && currentLobbyRoom) {
         const resetLobbyRoom = readLobbyRoom(activeLobbyId);
         Object.values(resetLobbyRoom.players).forEach(player => {
