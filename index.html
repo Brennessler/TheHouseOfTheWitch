@@ -1811,7 +1811,6 @@ body.raven-wordle #ravenPuzzleOverlay {
     left: 18%;
     top: 78%;
     width: 18%;
-    z-index: 2;
     transform: translate(-50%, -44%);
     cursor: grab;
     touch-action: none;
@@ -1841,7 +1840,6 @@ body.raven-wordle #ravenPuzzleOverlay {
     position: absolute;
     bottom: 2%;
     left: 50%;
-    z-index: 3;
     max-width: 80%;
     transform: translateX(-50%);
     padding: 4px 10px;
@@ -1860,7 +1858,6 @@ body.raven-wordle #ravenPuzzleOverlay {
 #ouijaLetterHints {
     position: absolute;
     inset: 0;
-    z-index: 1;
     pointer-events: none;
 }
 
@@ -2028,7 +2025,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 .spirit-swamp19-monster {
     position: absolute;
     inset: 0;
-    z-index: 17;
+    z-index: 15;
     overflow: hidden;
     pointer-events: none;
 }
@@ -2037,7 +2034,6 @@ body.raven-wordle #ravenPuzzleOverlay {
     position: absolute;
     object-fit: contain;
     object-position: center top;
-    mix-blend-mode: screen;
 }
 
 #scene.spirit-shake {
@@ -3673,7 +3669,7 @@ const scenes = {
 
     kitchenRaven: {
         name: "Köket - Korpen",
-        image: () => ravenState.fed || ravenState.solved ? RAVEN_FED_IMAGE : RAVEN_UNFED_IMAGE,
+        image: () => ravenState.solved ? RAVEN_FED_IMAGE : RAVEN_UNFED_IMAGE,
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "kitchen", label: "Tillbaka" },
             { x: 27.1, y: 16.2, w: 47, h: 70.7, special: "ravenPuzzle", label: "Korpen" }
@@ -4328,7 +4324,6 @@ const worldState = {
     },
     raven: {
         started: false,
-        fed: false,
         solved: false,
         guesses: [],
         currentGuess: "",
@@ -4904,7 +4899,7 @@ function isMessengerSpiritPlayer() {
 
 function syncMessengerRelay() {
     if (!messengerRelayEl) return;
-    const enabled = isFourPlayerGame();
+    const enabled = isFourPlayerGame() && Boolean(messengerPlayerId());
     document.body.classList.toggle("messenger-available", enabled);
     document.getElementById("messengerRelayLabel").textContent =
         playerHasRole("messenger") ? "Skicka vidare" : "Till Budbäraren";
@@ -5540,7 +5535,6 @@ async function putRecordOnPlayer(record, sourceData) {
 
     recordTransactionInProgress = true;
     const playerId = String(playerState.id);
-    const recordHeldLocally = sourceData.source === "inventory" && inventory.has(record);
     const readyAt = Date.now() + 5000;
     try {
         const result = await window.firebase.database()
@@ -5571,9 +5565,6 @@ async function putRecordOnPlayer(record, sourceData) {
                     const playerInventory = Array.isArray(currentPlayer?.inventory)
                         ? [...currentPlayer.inventory]
                         : [];
-                    if (!playerInventory.includes(record) && recordHeldLocally) {
-                        playerInventory.push(record);
-                    }
                     const itemIndex = playerInventory.indexOf(record);
                     if (itemIndex < 0) return;
                     playerInventory.splice(itemIndex, 1);
@@ -7375,7 +7366,7 @@ function updateInventory({ persist = true } = {}) {
         itemEl.title = albumSet
             ? `${albumSet.record.name} i ${albumSet.cover.name}`
             : itemNames[item] || item;
-        itemEl.draggable = !(isLoungeRecord(item) && currentScene === "loungeRecordPlayer");
+        itemEl.draggable = true;
 
         const icon = itemIcons[item];
 
@@ -7406,11 +7397,6 @@ function updateInventory({ persist = true } = {}) {
         }
 
         itemEl.addEventListener("click", () => {
-            if (isLoungeRecord(item) && currentScene === "loungeRecordPlayer") {
-                handleSpecialDrop("loungeRecordSlot", item);
-                return;
-            }
-
             if (item === "purplePotion") {
                 showConfirm("Trolldrycken", "Ta en hutt?", () => {
                     playPotionDrunkSound();
@@ -7431,76 +7417,6 @@ function updateInventory({ persist = true } = {}) {
             selectedItem = undefined;
             event.dataTransfer.setData("text/plain", item);
         });
-        if (isLoungeRecord(item) && currentScene === "loungeRecordPlayer") {
-            let pointerStart = null;
-            let pointerDragging = false;
-
-            const clearPointerDrag = () => {
-                pointerStart = null;
-                pointerDragging = false;
-                dragPreviewEl?.remove();
-                dragPreviewEl = null;
-                dragSourceEl = null;
-                document.body.classList.remove("item-dragging");
-            };
-
-            itemEl.addEventListener("pointerdown", event => {
-                if (event.button !== 0) return;
-                pointerStart = {
-                    id: event.pointerId,
-                    x: event.clientX,
-                    y: event.clientY
-                };
-                itemEl.setPointerCapture(event.pointerId);
-            });
-
-            itemEl.addEventListener("pointermove", event => {
-                if (!pointerStart || event.pointerId !== pointerStart.id) return;
-                if (
-                    !pointerDragging &&
-                    Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) < 6
-                ) {
-                    return;
-                }
-
-                if (!pointerDragging) {
-                    pointerDragging = true;
-                    document.body.classList.add("item-dragging");
-                    dragSourceEl = itemEl;
-                    dragPreviewEl = document.createElement("div");
-                    dragPreviewEl.className = "drag-preview";
-                    const rect = itemEl.getBoundingClientRect();
-                    const size = value => Math.min(180, Math.max(50, value));
-                    dragPreviewEl.style.width = `${size(rect.width)}px`;
-                    dragPreviewEl.style.height = `${size(rect.height)}px`;
-                    const img = document.createElement("img");
-                    img.src = itemIcons[item];
-                    dragPreviewEl.appendChild(img);
-                    document.body.appendChild(dragPreviewEl);
-                }
-
-                event.preventDefault();
-                dragPreviewEl.style.left = `${event.clientX}px`;
-                dragPreviewEl.style.top = `${event.clientY}px`;
-                dragPreviewEl.classList.toggle(
-                    "over-drop-zone",
-                    Boolean(getLoungeRecordSlotAtPoint(event.clientX, event.clientY))
-                );
-            });
-
-            itemEl.addEventListener("pointerup", event => {
-                if (!pointerStart || event.pointerId !== pointerStart.id) return;
-                if (pointerDragging) {
-                    const spot = getLoungeRecordSlotAtPoint(event.clientX, event.clientY);
-                    if (spot && inventory.has(item)) {
-                        handleSpecialDrop("loungeRecordSlot", item, spot);
-                    }
-                }
-                clearPointerDrag();
-            });
-
-            itemEl.addEventListener("pointercancel", clearPointerDrag);
-        }
         itemEl.addEventListener("dragover", event => event.preventDefault());
         itemEl.addEventListener("drop", event => {
             event.preventDefault();
@@ -7610,11 +7526,7 @@ function handleMessengerRelayDrop(event) {
         return;
     }
     if (!isFourPlayerGame() || !messengerPlayerId()) {
-        showToast(
-            isFourPlayerGame()
-                ? "Budbäraren har inte hämtat väskan ännu."
-                : "Budbäraren är inte tillgänglig."
-        );
+        showToast("Budbäraren är inte tillgänglig.");
         return;
     }
     if (playerHasRole("messenger")) {
@@ -7644,109 +7556,50 @@ function openRecipeBook() {
 }
 
 const NOTE_TEXT_BY_IMAGE = {
-    "assets/ui/WH_UI_Doornote.webp": `Kära gäster,
+    "assets/ui/WH_UI_Doornote.webp": `Hej!
 
-Om ni läser detta är jag tyvärr inte hemma.
-
-Grannens katt har försvunnit igen, och eftersom byborna av någon märklig anledning alltid börjar med att misstänka häxan, ansåg jag det klokt att skaffa mig ett alibi.
-
-Jag hade tänkt lämna boken åt er personligen, men min mor tog med sig den in på toaletten för sin kvällsläsning. Hon försäkrade mig om att hon skulle lägga den i köket när hon var färdig.
-
-Min mor försäkrar mig många saker.
-
-Därför lämnar jag även köksnyckeln. Den senaste månaden har hon lyckats låsa ute sig själv ur sitt eget hus fyra gånger, förlägga två nyckelknippor och på något sätt tappa bort en dörr.
-
-När ni väl har boken kommer portalen i hallen att vakna till liv. Den tar er hem betydligt snabbare än skogsvägen, och med avsevärt lägre risk att bli uppäten.
-
-Försök att inte flytta runt något medan jag är borta.
-
+Var tvungen att rusa iväg, grannens katt är borta och jag behöver ett alibi.
+Jag tänkte hämta boken åt er, men Baba läste de på dass när jag gick. Hon lovade att ta med den till köket när hon var klar.
+Jag lämnar köksnyckeln här för säkerhets skull. Baba har glömt hur hennes egen dörr fungerar flera gånger den här månaden.
+När ni har boken kommer transportportalen aktiveras i hallen, så slipper ni gå hem i mörkret.
+Puss puss
 // Kassandra`,
-    "assets/ui/WH_UI_BabaNote.webp": `HEJ.
+    "assets/ui/WH_UI_BabaNote.webp": `Hej.
 
 Boken är inte i köket.
+Jag glömde ta med den från toaletten.
+När jag mindes att jag glömt var maken på toa. Vad är det med gubbar att spendera dagar därinne?
 
-Glömde den på toa.
+Aja, jag har en nyckel men den är borta.
 
-Sen var maken där.
+Nä, den är gömd.
+Jag gömde nyckeln i kassaskåpet så att ingen skulle tappa bort den.
 
-Fortfarande där när jag kom på att boken var där.
+Men kassaskåpet är borta. Jag skrev ju ned...
 
-Gubbar kan inte gå på toa normalt. Sitter där i timmar. Som om dom ruvar ägg.
-
-Dörren är låst.
-
-Nyckeln har jag.
-
-Hade.
-
-Har den nog.
-
-Nån stans.
-
-NÄ.
-
-Kom på.
-
-Jag gömde den i kassaskåpet så ingen klant tappar bort den.
-
-Smart.
-
-Nu minns jag inte vart kassaskåpet är.
-
-Mindre smart.
-
-Brygg kommaihåg-drycken så hittar ni det.
-
-Receptet finns här nånstans.
-
-Jag går ut och plockar svamp.
-
-Behöver ny make snart.
-
-Den förra tålde inte maten.
-
-Klent virke.
+Aja, gör min komma ihåg dryck så hittar ni den. Jag ska plocka kantareller.
 
 // Baba`,
     "assets/ui/WH_UI_Kirknote.webp": `Mormor,
 
 Jag tog toanyckeln.
+Det är galenskap att ha den i ett låst kassaskåp, det är illa nog att behöva släpa dina gubbar av toastolen.
 
-Att låsa in en nyckel i ett kassaskåp är exakt den sortens idé som får folk att dö på toaletten.
+Jag hängde nyckeln i elskåpet uppe i loungen.
 
-Vilket de också nästan gör.
-
-Helt ärligt förstår jag inte varför du fortfarande gifter dig. De flesta av dina män tillbringar halva äktenskapet på dass och andra halvan med att återhämta sig från mystiska svampgrytor.
-
-Numera låser de ju in sig där inne så fort du börjar laga mat.
-
-Hela huset är beroende av den där nyckeln.
-
-Jag flyttade den därför till elskåpet uppe i loungen. Det är åtminstone ett ställe folk faktiskt kan hitta.
-
-Om ni behöver komma in till mig ligger min reservnyckel här.
-
-Mamma tycker säkert att jag överdriver, men någon måste ju vara den vuxna i familjen.
-
+Om nöd eller döden kallar, titta förbi. Jag lämnar min extranyckel här.
 // Kirke`,
     "assets/ui/WH_UI_Kassnote.webp": `Kirke,
 
-Jag hittade nyckeln i elskåpet.
+Jag orkar inte stå och banka på din dörr i tio minuter varje gång Babas gubbar säckar ihop.
 
-Jag vill först påpeka att "i elskåpet" inte är en förbättring jämfört med "i ett försvunnet kassaskåp".
+Och eftersom du aldrig tar av dig hörlurarna, och Baba av någon anledning fortsätter förgifta sina makar, så har jag löst problemet själv.
 
-För det andra skulle jag uppskatta om du slutade förvara viktiga föremål på platser som kräver stegar, bergsbestigningsutrustning eller ett särskilt dödsförakt för att nå.
+Jag tog nyckeln från elskåpet och förtrollade den.
 
-Eftersom mormor fortsätter att förgifta sina makar i snabbare takt än huset hinner begrava dem, behövs nyckeln alldeles för ofta för att förvaras så illa.
+Hosta tre gånger så visar den sig.
 
-Jag har därför förtrollat den.
-
-Om du hostar tre gånger visar nyckeln sig.
-
-Om detta misslyckas får ni komma upp till tornet när jag återvänder, så får vi tillsammans försöka införa åtminstone en enda vettig regel i den här familjen.
-
-Hälsa mormor att hennes svampkorg ryker nästa gång.
-
+Om det inte fungerar så kom upp till tornet när jag är tillbaka, så får vi hitta en mindre korkad lösning.
 // Kassandra`
 };
 
@@ -7837,27 +7690,17 @@ ouijaPlanchetteEl.addEventListener("pointerup", event => {
     if (!ouijaDrag || event.pointerId !== ouijaDrag.pointerId) return;
     resetOuijaPlanchette();
     if (!ouijaText) return;
-    const messageText = ouijaText;
-    const answerScene = SPIRIT_SCENE_IDS.has(loungeState.spiritSharedScene)
-        ? loungeState.spiritSharedScene
-        : currentScene;
-    if (SPIRIT_CORRECT_ANSWERS.has(`${answerScene}:${normalizeSpiritTerm(messageText)}`)) {
+    const answerScene = loungeState.spiritSharedScene || currentScene;
+    if (SPIRIT_CORRECT_ANSWERS.has(`${answerScene}:${normalizeSpiritTerm(ouijaText)}`)) {
         clearSpiritDecisionCountdown();
     }
-    ouijaMessageEl.textContent = "Skickar...";
-    ouijaText = "";
     sharedStateStore.write(OUIJA_EVENT_KEY, JSON.stringify({
-        text: messageText,
+        text: ouijaText,
         playerId: playerState.id,
         timestamp: Date.now()
-    })).then(saved => {
-        ouijaMessageEl.textContent = saved
-            ? "Skickat"
-            : "Kunde inte skicka. Kontrollera anslutningen.";
-    }).catch(error => {
-        console.error("Ouija-meddelandet kunde inte skickas.", error);
-        ouijaMessageEl.textContent = "Kunde inte skicka. Kontrollera anslutningen.";
-    });
+    }));
+    ouijaMessageEl.textContent = "Skickat";
+    ouijaText = "";
 });
 
 ouijaPlanchetteEl.addEventListener("pointercancel", resetOuijaPlanchette);
@@ -8550,8 +8393,6 @@ let spiritSequenceToken = 0;
 let spiritSequenceTimer = null;
 let spiritRampUpTimer = null;
 let spiritSequenceInProgress = false;
-let spiritSwamp19ChaseToken = null;
-let spiritSwamp19WatchdogTimer = null;
 let spiritRemoteFrameToken = 0;
 let spiritRampUpStartedForSequence = false;
 let spiritRampUpPlaybackClaimed = false;
@@ -8773,11 +8614,7 @@ function cancelSpiritSequence({
     preserveInProgress = false,
     preserveSwampMonster = false
 } = {}) {
-    const wasSwamp19ChaseActive = spiritSwamp19ChaseToken !== null;
     spiritSequenceToken += 1;
-    spiritSwamp19ChaseToken = null;
-    clearTimeout(spiritSwamp19WatchdogTimer);
-    spiritSwamp19WatchdogTimer = null;
     setForestWindAudio(false);
     clearTimeout(spiritSequenceTimer);
     spiritSequenceTimer = null;
@@ -8796,20 +8633,6 @@ function cancelSpiritSequence({
         sceneEl.querySelectorAll(".spirit-swamp19-monster").forEach(el => el.remove());
     }
     clearSpiritEffects();
-
-    if (wasSwamp19ChaseActive && currentScene === "spiritSwamp19") {
-        setTimeout(() => {
-            if (
-                currentScene === "spiritSwamp19" &&
-                playerState.scene === "spiritSwamp19" &&
-                !loungeState.spiritBanished &&
-                !document.getElementById("spiritFailureOverlay").classList.contains("visible") &&
-                spiritSwamp19ChaseToken === null
-            ) {
-                startSpiritSwamp19Chase();
-            }
-        }, 250);
-    }
 }
 
 function waitForSpiritFrame(duration, token) {
@@ -9151,17 +8974,8 @@ const SPIRIT_SWAMP19_MONSTER_INTERVALS = SPIRIT_SWAMP19_MONSTER_POSITIONS
     .map((_, index) => (index < 9 ? 1000 : 500));
 
 async function startSpiritSwamp19Chase() {
-    if (
-        loungeState.spiritBanished ||
-        currentScene !== "spiritSwamp19" ||
-        (spiritSwamp19ChaseToken !== null &&
-            sceneEl.querySelector(".spirit-swamp19-monster"))
-    ) {
-        return;
-    }
     cancelSpiritSequence();
     const token = spiritSequenceToken;
-    spiritSwamp19ChaseToken = token;
 
     loungeState.spiritCrucifixReady = false;
     markSharedLoungeStateChanged();
@@ -9179,25 +8993,6 @@ async function startSpiritSwamp19Chase() {
 
     const chaseDuration = SPIRIT_SWAMP19_MONSTER_INTERVALS
         .reduce((total, interval) => total + interval, 0);
-    spiritSwamp19WatchdogTimer = setTimeout(() => {
-        if (
-            token !== spiritSequenceToken ||
-            spiritSwamp19ChaseToken !== token ||
-            currentScene !== "spiritSwamp19"
-        ) {
-            return;
-        }
-
-        console.error("Krucifixjakten fastnade; visar återhämtningsflödet.");
-        spiritSwamp19WatchdogTimer = null;
-        if (loungeState.spiritCrucifixReady) {
-            monsterImg.src = "assets/interactables/Spirit/WH_AST_Follower_defeated.webp";
-            playEningExSound();
-            runSpiritWhiteTransition("spiritSwamp17", { keepMonsterVisible: true });
-        } else {
-            showSpiritSwamp19FailureMessage();
-        }
-    }, chaseDuration + 6000);
     const rampUpDelay = Math.max(0, chaseDuration - getSpiritRampUpDurationMs());
     spiritRampUpTimer = setTimeout(
         () => startSpiritRampUpForSequence(token),
@@ -9230,12 +9025,8 @@ async function startSpiritSwamp19Chase() {
         playEningExSound();
         const continued = await waitForSpiritFrame(600, token);
         if (!continued) return;
-        clearTimeout(spiritSwamp19WatchdogTimer);
-        spiritSwamp19WatchdogTimer = null;
         runSpiritWhiteTransition("spiritSwamp17", { keepMonsterVisible: true });
     } else {
-        clearTimeout(spiritSwamp19WatchdogTimer);
-        spiritSwamp19WatchdogTimer = null;
         showSpiritSwamp19FailureMessage();
     }
 }
@@ -9387,13 +9178,6 @@ const OUIJA_HINT_EXCLUDED_SCENES = new Set([
 const SPIRIT_SCENE_ORDER = SPIRIT_REALM_STEPS.map(step => step.id);
 const SPIRIT_SCENE_INDEX = new Map(SPIRIT_SCENE_ORDER.map((id, index) => [id, index]));
 const OUIJA_HINT_LOOKAHEAD_STEPS = 3;
-
-function getOuijaHintScene() {
-    if (SPIRIT_SCENE_IDS.has(currentScene)) return currentScene;
-    return SPIRIT_SCENE_IDS.has(loungeState.spiritSharedScene)
-        ? loungeState.spiritSharedScene
-        : currentScene;
-}
 
 function updateOuijaLetterHints(sceneId) {
     if (!ouijaLetterHintsEl) return;
@@ -10450,7 +10234,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
             showToast("Siaren kan inte använda Ouija-brädet.");
             return;
         }
-        updateOuijaLetterHints(getOuijaHintScene());
+        updateOuijaLetterHints(loungeState.spiritSharedScene || currentScene);
         document.getElementById("ouijaBoardOverlay").classList.add("visible");
         document.body.classList.add("ouija-board-open");
         syncSpiritRun();
@@ -10552,7 +10336,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
 
     if (special === "loungeHamsterKey") {
         if (!playerHasRole("builder")) {
-            showToast("Åhh han sover så sött, jag vågar inte störa honom. Jag har ju inte ens en nyckelknippa.");
+            showToast("Bara Byggaren kan nå nyckeln vid hamsterhjulet.");
             return;
         }
         if (loungeState.builderDead || loungeState.builderRevived) return;
@@ -10619,16 +10403,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
     }
 
     if (special === "loungeRecordSlot") {
-        const inventoryRecords = [...inventory].filter(isLoungeRecord);
-        if (playerHasRole("builder") && inventoryRecords.length === 1) {
-            handleSpecialDrop("loungeRecordSlot", inventoryRecords[0]);
-            return;
-        }
-        showToast(
-            inventoryRecords.length > 1
-                ? "Välj en skiva genom att klicka på den i inventoryt."
-                : "Klicka på skivan i inventoryt eller dra den till skivspelaren."
-        );
+        showToast("Dra en skiva från inventoryn till skivspelaren.");
         return;
     }
 
@@ -10671,7 +10446,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
                 return;
             }
             if (loungeState.puzzleSolved) {
-                showToast("Ypperligt organiserade skivor, verkligen ett nöje för ögat.");
+                showToast("Albumet sitter fast nu.");
                 return;
             }
             if (!tryAddInventoryItem(placedSet)) return;
@@ -10683,7 +10458,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
             showToast("Du tog ut albumet ur facket.");
             return;
         }
-        showToast("De ser ut att vara organiserade på ett ganska.. sätt.");
+        showToast("Ypperligt organiserade skivor, verkligen ett nöje för ögat.");
         return;
     }
 
@@ -10836,15 +10611,6 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         }
 
         if (ravenState.started) {
-            openRavenPuzzle();
-            return;
-        }
-
-        if (ravenState.fed) {
-            ravenState.started = true;
-            ravenState.guesses = [];
-            ravenState.currentGuess = "";
-            saveWorldState();
             openRavenPuzzle();
             return;
         }
@@ -11036,8 +10802,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
     if (special === "ravenPuzzle") {
         const canonicalBrainJar = draggedItem === "brain_jar" ? "frogBrain" : draggedItem;
 
-        if (ravenState.fed || ravenState.solved ||
-            canonicalBrainJar !== "frogBrain" || !inventory.has("frogBrain")) {
+        if (ravenState.solved || canonicalBrainJar !== "frogBrain" || !inventory.has("frogBrain")) {
             showToast("Det går inte att använda det här på korpen.");
             return;
         }
@@ -11045,7 +10810,6 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
         inventory.delete("frogBrain");
         updateInventory();
         ravenState.started = true;
-        ravenState.fed = true;
         ravenState.solved = false;
         ravenState.guesses = [];
         ravenState.currentGuess = "";
@@ -11155,7 +10919,6 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
 
 function resetRavenPuzzle() {
     ravenState.started = false;
-    ravenState.fed = false;
     ravenState.solved = false;
     ravenState.guesses = [];
     ravenState.currentGuess = "";
@@ -11327,10 +11090,7 @@ function submitRavenGuess() {
 
     if (ravenState.guesses.length >= 6) {
         closeRavenPuzzle();
-        ravenState.started = false;
-        ravenState.guesses = [];
-        ravenState.currentGuess = "";
-        saveWorldState();
+        resetRavenPuzzle();
         showToast("Korpen avvisar svaret.");
         return;
     }
@@ -12346,21 +12106,15 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         }
         if (sharedSpiritStateChanged) markSharedLoungeStateChanged();
         updateSpiritDecisionCountdown(id);
-        if (
-            id === "spiritSwamp19" &&
-            !loungeState.spiritBanished &&
-            !document.getElementById("spiritFailureOverlay").classList.contains("visible") &&
-            (spiritSwamp19ChaseToken === null ||
-                !sceneEl.querySelector(".spirit-swamp19-monster"))
-        ) {
-            startSpiritSwamp19Chase();
-        }
         if (initialSceneRendered && previousScene !== id) {
             handleBuilderCough();
             if (id === "spiritWoods6") {
                 setTimeout(() => {
                     if (currentScene === "spiritWoods6") showToast("Skogen är tyst");
                 }, 1000);
+            }
+            if (id === "spiritSwamp19") {
+                startSpiritSwamp19Chase();
             }
         }
         initialSceneRendered = true;
@@ -12371,7 +12125,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         }
         syncSpiritRun();
         renderSpiritEquipmentOverlays(id);
-        updateOuijaLetterHints(getOuijaHintScene());
+        updateOuijaLetterHints(loungeState.spiritSharedScene || id);
                 if (
             typeof SPIRIT_SCENE_IDS !== "undefined" &&
             SPIRIT_SCENE_IDS.has(id)
@@ -12509,12 +12263,6 @@ function normalizeReconnectCode(code) {
     return String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-function reconnectCodeStorageKey(lobbyId = activeLobbyId, seatId = lobbySeatId) {
-    return lobbyId && seatId
-        ? `wh_reconnectCode_${lobbyId}_${seatId}`
-        : null;
-}
-
 async function saveReconnectCode(code, record) {
     if (!firebaseConnected || !firebaseInitialized) {
         throw new Error("Firebase är inte anslutet.");
@@ -12524,14 +12272,6 @@ async function saveReconnectCode(code, record) {
 
 function setVisibleReconnectCode(code) {
     activeReconnectCode = code || null;
-    const storageKey = reconnectCodeStorageKey();
-    if (storageKey) {
-        if (activeReconnectCode) {
-            sessionStorage.setItem(storageKey, activeReconnectCode);
-        } else {
-            sessionStorage.removeItem(storageKey);
-        }
-    }
     const formattedCode = code ? formatReconnectCode(code) : "";
     reconnectCodeValueEl.textContent = formattedCode;
     reconnectCodeDisplayEl.hidden = !code;
@@ -12553,7 +12293,7 @@ async function copyReconnectCode() {
 }
 
 function ensurePlayerReconnectCode(lobbyId, seatId, player) {
-    if (player.reconnectId && activeReconnectCode) return;
+    if (player.reconnectId) return;
     const code = generateReconnectCode();
     const reconnectId = crypto.randomUUID();
     player.reconnectId = reconnectId;
@@ -12571,10 +12311,8 @@ function ensurePlayerReconnectCode(lobbyId, seatId, player) {
                 reconnectId,
                 createdAt: Date.now()
             });
-            setVisibleReconnectCode(code);
         } catch (error) {
             console.error("Återanslutningskoden kunde inte sparas.", error);
-            lobbyNoticeEl.textContent = "Återanslutningskoden kunde inte återställas. Försök ladda om sidan.";
         }
     });
 }
@@ -13344,9 +13082,6 @@ function restoreLobbySession() {
         TEST_TEAM.team = lobbyId;
         currentLobbyRoom = room;
         sessionStorage.setItem("wh_activeLobbyId", lobbyId);
-        setVisibleReconnectCode(
-            sessionStorage.getItem(reconnectCodeStorageKey(lobbyId, Number(ownSeat)))
-        );
         ensurePlayerReconnectCode(lobbyId, Number(ownSeat), joinedPlayer);
 
         if (room.startedAt) {
@@ -14455,7 +14190,7 @@ sharedStateStore.subscribe(event => {
             renderSpiritEquipmentOverlays(currentScene);
         }
         if (document.getElementById("ouijaBoardOverlay").classList.contains("visible")) {
-            updateOuijaLetterHints(getOuijaHintScene());
+            updateOuijaLetterHints(loungeState.spiritSharedScene || currentScene);
         }
     }
 
@@ -14489,14 +14224,11 @@ sharedStateStore.subscribe(event => {
         }
     }
 
-    const sharedSpiritScene = loungeState.spiritSharedScene;
-    const spiritSceneId = SPIRIT_SCENE_IDS.has(sharedSpiritScene)
-        ? sharedSpiritScene
-        : currentScene;
+    const spiritSceneId = loungeState.spiritSharedScene || currentScene;
     if (
         event.key === OUIJA_EVENT_KEY &&
         event.newValue &&
-        (SPIRIT_SCENE_IDS.has(currentScene) || isActiveSpiritTraveler()) &&
+        isActiveSpiritTraveler() &&
         SPIRIT_SCENE_IDS.has(spiritSceneId)
     ) {
         const message = JSON.parse(event.newValue);
