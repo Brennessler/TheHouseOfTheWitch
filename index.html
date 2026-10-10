@@ -4994,7 +4994,7 @@ function isMessengerSpiritPlayer() {
 
 function syncMessengerRelay() {
     if (!messengerRelayEl) return;
-    const enabled = isFourPlayerGame();
+    const enabled = isFourPlayerGame() && Boolean(messengerPlayerId());
     document.body.classList.toggle("messenger-available", enabled);
     document.getElementById("messengerRelayLabel").textContent =
         playerHasRole("messenger") ? "Skicka vidare" : "Till Budbäraren";
@@ -5187,10 +5187,11 @@ function broadcastLoungeNotice(text, excludePlayerId = playerState.id) {
     }));
 }
 
-function broadcastBuilderShock(builderName) {
+function broadcastBuilderShock(builderName, messengerDeadId = null) {
     sharedStateStore.write(LOUNGE_EVENT_KEY, JSON.stringify({
         type: "builderShock",
-        builderName,
+        builderName: currentLobbyRoom?.players?.[String(playerState.id)]?.name || builderName,
+        messengerDeadId,
         playerId: playerState.id,
         timestamp: Date.now()
     }));
@@ -10758,7 +10759,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         markSharedLoungeStateChanged();
         saveWorldState();
         syncLoungeAudio();
-        broadcastBuilderShock(playerState.name);
+        broadcastBuilderShock(playerState.name, loungeState.messengerDeadId);
         runBuilderShockSequence(true, playerState.name);
         return;
     }
@@ -14701,8 +14702,11 @@ sharedStateStore.subscribe(event => {
         const notice = JSON.parse(event.newValue);
         if (notice.type === "builderShock") {
             if (notice.playerId !== playerState.id) {
-                const isMessengerSpirit = loungeState.spiritCoopActive &&
-                    Number(loungeState.messengerDeadId) === Number(playerState.id);
+                const messengerDeadId = Object.prototype.hasOwnProperty.call(notice, "messengerDeadId")
+                    ? notice.messengerDeadId
+                    : loungeState.spiritCoopActive ? loungeState.messengerDeadId : null;
+                const isMessengerSpirit = isFourPlayerGame() &&
+                    Number(messengerDeadId) === Number(playerState.id);
                 runBuilderShockSequence(false, notice.builderName, isMessengerSpirit);
             }
             return;
