@@ -4538,7 +4538,9 @@ const TRANSACTION_ONLY_LOUNGE_FIELDS = new Set([
     "playingRecord",
     "closeEyesReadyAt",
     "builderCoughCount",
-    "builderCoughNextAt"
+    "builderCoughNextAt",
+    "spiritVotes",
+    "spiritVoteResolvedToken"
 ]);
 
 const TRANSACTION_ONLY_KITCHEN_FIELDS = new Set([
@@ -4552,7 +4554,7 @@ const TRANSACTION_ONLY_KITCHEN_FIELDS = new Set([
 ]);
 
 function mergeFirebaseState(current, incoming, previous, path = "", options = {}) {
-    const { allowKettleState = false, allowBuilderCoughState = false } = options;
+    const { allowKettleState = false, allowBuilderCoughState = false, allowSpiritVoteState = false } = options;
     if (JSON.stringify(incoming) === JSON.stringify(previous)) return current;
     const isObject = value => value && typeof value === "object" && !Array.isArray(value);
     const matchesPrevious = (value, baseline) =>
@@ -4582,6 +4584,10 @@ function mergeFirebaseState(current, incoming, previous, path = "", options = {}
             const fieldPath = path ? `${path}.${field}` : field;
             if (path === "lounge" && TRANSACTION_ONLY_LOUNGE_FIELDS.has(field)) {
                 if (allowBuilderCoughState && ["builderCoughCount", "builderCoughNextAt"].includes(field)) {
+                    if (incoming[field] == null) delete merged[field];
+                    else merged[field] = incoming[field];
+                }
+                if (allowSpiritVoteState && ["spiritVotes", "spiritVoteResolvedToken"].includes(field)) {
                     if (incoming[field] == null) delete merged[field];
                     else merged[field] = incoming[field];
                 }
@@ -5241,54 +5247,167 @@ function isReturningSpirit() {
     );
 }
 
-function submitSpiritActionVote(action, label, message = `vill gå ${label.toLowerCase()}`) {
-    if (!isSpiritCoopMember()) return false;
-    loungeState.spiritVotes ||= {};
-    loungeState.spiritVotes[playerState.id] = {
-        action,
-        label,
-        timestamp: Date.now()
-    };
-    markSharedLoungeStateChanged();
-    saveWorldState();
-    sharedStateStore.write(SPIRIT_VOTE_EVENT_KEY, JSON.stringify({
-        playerId: playerState.id,
-        playerName: playerState.name,
-        label,
-        message,
-        timestamp: Date.now()
-    }));
-    tryResolveSpiritActionVote();
-    return true;
+const SPIRIT_DIRECT_TARGETS = {
+    spiritEnterRealm: "loungeSpiritRealm",
+    spiritGoWoods1: "spiritWoods1",
+    spiritGoWoods2: "spiritWoods2",
+    spiritGoWoods3: "spiritWoods3",
+    spiritGoWoods2Return: "spiritWoods2",
+    spiritGoWoods4: "spiritWoods4",
+    spiritGoRealm2: "loungeSpiritRealm2",
+    spiritGoTunnelLight: "spiritTunnelLight",
+    spiritGoSwamp2: "spiritSwamp2",
+    spiritGoSwamp3: "spiritSwamp3",
+    spiritGoSwamp4: "spiritSwamp4",
+    spiritGoSwamp5: "spiritSwamp5",
+    spiritGoSwamp6: "spiritSwamp6",
+    spiritGoSwamp8: "spiritSwamp8",
+    spiritSwampLog: "spiritSwamp12",
+    spiritReturnToCabin: "exterior"
+};
+
+function spiritVoteTarget(action, lounge) {
+    if (action.type === "target") return action.target;
+    if (action.type !== "special") return null;
+    if (action.special === "spiritGoWoods2Continue") {
+        return (lounge.spiritUnlockedChoices || []).includes("loungeSpiritRealm2:uggla")
+            ? "spiritWoods4" : "spiritWoods3";
+    }
+    if (action.special === "spiritTunnelDark") {
+        return lounge.spiritFlashlightEquipped ? "spiritTunnelLight" : null;
+    }
+    if (action.special === "spiritWrongPath") return "loungeSpiritArrival";
+    return SPIRIT_DIRECT_TARGETS[action.special] || null;
 }
 
-function tryResolveSpiritActionVote() {
-    if (!isSpiritCoopMember()) return;
+function roomHasSpiritCoop(room) {
+    const lounge = room?.world?.lounge;
+    return Boolean(Number(room?.lobby?.playerLimit) === 4 &&
+        lounge?.spiritCoopActive && lounge.builderDead && lounge.messengerDead &&
+        !lounge.messengerRevived);
+}
+
+let spiritVoteSubmissionPending = false;
+let spiritVoteResolutionPending = false;
+
+async function submitSpiritActionVote(action, label, message = `vill gå ${label.toLowerCase()}`) {
+    if (!isSpiritCoopMember()) return false;
+    if (spiritVoteSubmissionPending) return false;
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized) {
+        showToast("Vägvalet kunde inte sparas eftersom spellobbyn inte är ansluten.");
+        return false;
+    }
+    spiritVoteSubmissionPending = true;
+    const lobbyId = activeLobbyId;
+    const scene = currentScene;
+    const vote = { action, label, scene, timestamp: getFirebaseServerTime(), id: crypto.randomUUID() };
+    try {
+        const result = await window.firebase.database().ref(`rooms/${lobbyId}`)
+            .transaction(room => {
+                if (!roomHasSpiritCoop(room)) return;
+                const lounge = room.world.lounge;
+                if (![Number(lounge.builderDeadId), Number(lounge.messengerDeadId)].includes(Number(playerState.id)) ||
+                    (lounge.spiritSharedScene && lounge.spiritSharedScene !== scene)) return;
+                return {
+                    ...room,
+                    world: { ...room.world, lounge: {
+                        ...lounge, spiritVotes: { ...lounge.spiritVotes, [playerState.id]: vote }
+                    } }
+                };
+            });
+        if (!result.committed) {
+            showToast("Vägvalet kunde inte sparas eftersom den gemensamma scenen har ändrats.");
+            return false;
+        }
+        if (activeLobbyId !== lobbyId) return false;
+        loungeState.spiritVotes = result.snapshot.val().world.lounge.spiritVotes || {};
+        sharedStateStore.write(SPIRIT_VOTE_EVENT_KEY, JSON.stringify({
+            playerId: playerState.id, playerName: playerState.name, label, message,
+            timestamp: getFirebaseServerTime()
+        }));
+        await tryResolveSpiritActionVote();
+        return true;
+    } catch (error) {
+        showFirebaseError("Vägvalet kunde inte sparas.", error);
+        return false;
+    } finally {
+        spiritVoteSubmissionPending = false;
+    }
+}
+
+async function tryResolveSpiritActionVote() {
+    if (!isSpiritCoopMember() || spiritVoteResolutionPending ||
+        !activeLobbyId || !firebaseConnected || !firebaseInitialized) return;
     const builderVote = loungeState.spiritVotes?.[loungeState.builderDeadId];
     const messengerVote = loungeState.spiritVotes?.[loungeState.messengerDeadId];
     if (!builderVote || !messengerVote || builderVote.action.key !== messengerVote.action.key) return;
 
-    const token = `${builderVote.action.key}:${builderVote.timestamp}:${messengerVote.timestamp}`;
+    if (builderVote.scene !== messengerVote.scene || builderVote.scene !== currentScene) return;
+    const token = `${builderVote.action.key}:${builderVote.id || builderVote.timestamp}:${messengerVote.id || messengerVote.timestamp}`;
     if (loungeState.spiritVoteResolvedToken === token) return;
     const executorId = builderVote.action.type === "drop"
         ? Number(builderVote.action.actorId || messengerVote.action.actorId || loungeState.builderDeadId)
         : Number(loungeState.builderDeadId);
     if (playerState.id !== executorId) return;
-    loungeState.spiritVoteResolvedToken = token;
-    markSharedLoungeStateChanged();
-    saveWorldState();
-
-    if (builderVote.action.type === "special") {
-        handleSpecialClick(builderVote.action.special, {}, true);
-    } else if (builderVote.action.type === "drop") {
-        handleSpecialDrop(
-            builderVote.action.special,
-            builderVote.action.draggedValue || builderVote.action.item,
-            {},
-            true
-        );
-    } else if (builderVote.action.type === "target") {
-        goToScene(builderVote.action.target);
+    const lobbyId = activeLobbyId;
+    spiritVoteResolutionPending = true;
+    try {
+        const result = await window.firebase.database().ref(`rooms/${lobbyId}`)
+            .transaction(room => {
+                if (!roomHasSpiritCoop(room)) return;
+                const lounge = room.world.lounge;
+                const builder = lounge.spiritVotes?.[lounge.builderDeadId];
+                const messenger = lounge.spiritVotes?.[lounge.messengerDeadId];
+                if (!builder || !messenger || builder.scene !== messenger.scene ||
+                    (lounge.spiritSharedScene && builder.scene !== lounge.spiritSharedScene) ||
+                    builder.action.key !== messenger.action.key ||
+                    `${builder.action.key}:${builder.id || builder.timestamp}:${messenger.id || messenger.timestamp}` !== token ||
+                    lounge.spiritVoteResolvedToken === token) return;
+                const target = spiritVoteTarget(builder.action, lounge);
+                const nextLounge = { ...lounge, spiritVotes: {}, spiritVoteResolvedToken: token };
+                const next = { ...room, world: { ...room.world, lounge: nextLounge } };
+                if (target) {
+                    const ids = [String(lounge.builderDeadId), String(lounge.messengerDeadId)];
+                    if (ids.some(id => !room.players?.[id])) return;
+                    next.players = { ...room.players };
+                    ids.forEach(id => { next.players[id] = { ...room.players[id], scene: target }; });
+                    nextLounge.spiritSharedScene = target;
+                    nextLounge.spiritSharedFrameImage = null;
+                    if (builder.action.special === "spiritReturnToCabin") nextLounge.spiritReturning = true;
+                    const revision = Math.max(getFirebaseServerTime() * 10 + Number(playerState.id),
+                        (Number(lounge.sharedRevision) || 0) + 1,
+                        ...Object.values(lounge.sharedFieldRevisions || {}).map(value => (Number(value) || 0) + 1));
+                    nextLounge.sharedRevision = revision;
+                    nextLounge.sharedFieldRevisions = { ...lounge.sharedFieldRevisions,
+                        spiritSharedScene: revision, spiritSharedFrameImage: revision };
+                    if (builder.action.special === "spiritReturnToCabin") {
+                        nextLounge.sharedFieldRevisions.spiritReturning = revision;
+                    }
+                }
+                return next;
+            });
+        if (!result.committed || activeLobbyId !== lobbyId) return;
+        const lounge = result.snapshot.val().world.lounge;
+        loungeState.spiritVotes = {};
+        loungeState.spiritVoteResolvedToken = token;
+        if (spiritVoteTarget(builderVote.action, lounge)) {
+            applyCommittedLoungeFields(lounge, ["spiritSharedScene", "spiritSharedFrameImage"]);
+            if (builderVote.action.special === "spiritReturnToCabin") {
+                applyCommittedLoungeFields(lounge, ["spiritReturning"]);
+            }
+        }
+        if (builderVote.action.type === "special") {
+            handleSpecialClick(builderVote.action.special, {}, true);
+        } else if (builderVote.action.type === "drop") {
+            handleSpecialDrop(builderVote.action.special,
+                builderVote.action.draggedValue || builderVote.action.item, {}, true);
+        } else if (builderVote.action.type === "target") {
+            goToScene(builderVote.action.target, { persist: false });
+        }
+    } catch (error) {
+        showFirebaseError("Det gemensamma vägvalet kunde inte genomföras.", error);
+    } finally {
+        spiritVoteResolutionPending = false;
     }
 }
 
@@ -5308,7 +5427,7 @@ function reviveBuilder() {
         spiritVoteResolvedToken: null
     });
     markSharedLoungeStateChanged();
-    saveWorldState({ allowBuilderCoughState: true });
+    saveWorldState({ allowBuilderCoughState: true, allowSpiritVoteState: true });
     broadcastLoungeNotice(`${playerState.name} har återuppstått`);
     refreshScene();
     showResurrectionMessage();
@@ -5637,14 +5756,128 @@ function removeLoungeMediaFromSource(sourceData) {
     return false;
 }
 
-function applyCommittedRecordLounge(lounge) {
+function applyCommittedLoungeFields(lounge, fields) {
+    loungeState.sharedFieldRevisions ||= {};
+    fields.forEach(field => {
+        const revision = Number(lounge.sharedFieldRevisions?.[field]) || 0;
+        if (revision < (Number(loungeState.sharedFieldRevisions[field]) || 0)) return;
+        loungeState[field] = cloneGameState(lounge[field] ?? null);
+        if (revision) loungeState.sharedFieldRevisions[field] = revision;
+        if (sharedLoungeBaseline && SHARED_LOUNGE_STATE_FIELDS.includes(field)) {
+            sharedLoungeBaseline[field] = cloneGameState(loungeState[field]);
+        }
+    });
+    loungeState.sharedRevision = Math.max(
+        Number(loungeState.sharedRevision) || 0, Number(lounge.sharedRevision) || 0
+    );
+}
+
+function applyCommittedRecordLounge(lounge, transferredFields = []) {
     if (!lounge || typeof lounge !== "object" || Array.isArray(lounge)) return false;
-    Object.assign(loungeState, lounge, {
+    Object.assign(loungeState, {
         recordOnPlayer: lounge.recordOnPlayer ?? null,
         playingRecord: lounge.playingRecord ?? null,
         closeEyesReadyAt: lounge.closeEyesReadyAt ?? null
     });
+    if (transferredFields.length) applyCommittedLoungeFields(lounge, transferredFields);
     return true;
+}
+
+let builderBodyTransferPending = false;
+
+async function transferBuilderBody(action, item = null) {
+    if (builderBodyTransferPending) return false;
+    if (!activeLobbyId || !firebaseConnected || !firebaseInitialized || !window.firebase?.apps?.length) {
+        showToast("Kroppens föremål kunde inte flyttas eftersom spellobbyn inte är ansluten.");
+        return false;
+    }
+    builderBodyTransferPending = true;
+    const lobbyId = activeLobbyId;
+    const playerId = String(playerState.id);
+    let changedFields = [];
+    try {
+        const result = await window.firebase.database().ref(`rooms/${lobbyId}`)
+            .transaction(room => {
+                const lounge = room?.world?.lounge;
+                const player = room?.players?.[playerId];
+                if (!lounge || !Array.isArray(player?.inventory)) return;
+                const bodyInventory = [...(lounge.bodyInventory || [])];
+                let playerInventory = [...player.inventory];
+                let updates;
+                if (action === "death") {
+                    if (Number(lounge.roles?.builder) !== Number(playerId) ||
+                        lounge.builderDead || lounge.builderRevived) return;
+                    const messengerId = Number(room.lobby?.playerLimit) === 4
+                        ? Number(lounge.roles?.messenger) || null : null;
+                    updates = {
+                        bodyInventory: playerInventory.filter(value => value !== "headphones"),
+                        bodyKeyringAvailable: true,
+                        builderDead: true, deadBuilderName: playerState.name,
+                        builderDeadId: Number(playerId),
+                        messengerDead: Boolean(messengerId), messengerDeadId: messengerId,
+                        messengerRevived: false, spiritCoopActive: Boolean(messengerId),
+                        spiritSharedScene: null, spiritVotes: {}, spiritVoteResolvedToken: null,
+                        tvOn: false, playingRecord: null, closeEyesReadyAt: null
+                    };
+                    playerInventory = [];
+                } else if (action === "keyring") {
+                    if (!lounge.bodyKeyringAvailable ||
+                        Number(lounge.builderDeadId) === Number(playerId)) return;
+                    playerInventory = [...new Set([
+                        ...playerInventory, ...bodyInventory.filter(value => KEY_ITEMS.has(value)), "seanceKey"
+                    ])];
+                    updates = {
+                        bodyInventory: bodyInventory.filter(value => !KEY_ITEMS.has(value)),
+                        bodyKeyringAvailable: false
+                    };
+                } else if (action === "item") {
+                    if (Number(lounge.builderDeadId) === Number(playerId) ||
+                        KEY_ITEMS.has(item) || !bodyInventory.includes(item)) return;
+                    if (!playerInventory.includes(item) &&
+                        playerInventory.filter(value => !KEY_ITEMS.has(value) && !PORTRAIT_ITEMS.has(value)).length >= inventoryCapacity(player.role)) return;
+                    playerInventory = [...new Set([...playerInventory, item])];
+                    bodyInventory.splice(bodyInventory.indexOf(item), 1);
+                    updates = { bodyInventory };
+                } else return;
+                changedFields = Object.keys(updates);
+                const revision = Math.max(
+                    getFirebaseServerTime() * 10 + Number(playerId),
+                    (Number(lounge.sharedRevision) || 0) + 1,
+                    ...Object.values(lounge.sharedFieldRevisions || {}).map(value => (Number(value) || 0) + 1)
+                );
+                const sharedFieldRevisions = { ...(lounge.sharedFieldRevisions || {}) };
+                changedFields.filter(field => SHARED_LOUNGE_STATE_FIELDS.includes(field))
+                    .forEach(field => { sharedFieldRevisions[field] = revision; });
+                return {
+                    ...room,
+                    players: { ...room.players, [playerId]: { ...player, inventory: playerInventory } },
+                    world: {
+                        ...room.world,
+                        ...(action === "keyring" ? {
+                            pickedUpItems: [...new Set([...(room.world.pickedUpItems || []), "seanceKey"])]
+                        } : {}),
+                        lounge: { ...lounge, ...updates, sharedRevision: revision, sharedFieldRevisions }
+                    }
+                };
+            });
+        if (!result.committed) {
+            showToast("Kroppens föremål kunde inte flyttas. Kontrollera inventoryn eller om en annan spelare redan har hämtat dem.");
+            return false;
+        }
+        if (activeLobbyId !== lobbyId) return false;
+        const room = result.snapshot.val();
+        applyCommittedLoungeFields(room.world.lounge, changedFields);
+        inventory.clear();
+        room.players[playerId].inventory.forEach(value => inventory.add(value));
+        if (action === "keyring") pickedUpItems.add("seanceKey");
+        updateInventory({ persist: false });
+        return true;
+    } catch (error) {
+        showFirebaseError("Kroppens föremål kunde inte flyttas.", error);
+        return false;
+    } finally {
+        builderBodyTransferPending = false;
+    }
 }
 
 async function updateLoungeRecordState(updates) {
@@ -5796,7 +6029,9 @@ async function putRecordOnPlayer(record, sourceData) {
         }
 
         const committedRoom = result.snapshot.val();
-        if (!applyCommittedRecordLounge(committedRoom?.world?.lounge)) {
+        if (!applyCommittedRecordLounge(committedRoom?.world?.lounge,
+            sourceData.source === "dumpspot" ? ["dumpspotItems"] :
+                sourceData.source === "surface" ? ["placedItems"] : [])) {
             showToast("Skivan sattes i, men skivspelarens sparade state kunde inte läsas.");
             return false;
         }
@@ -5926,7 +6161,9 @@ async function takeRecordFromPlayer(record, destination = "inventory", surfaceId
         }
         transactionCommitted = true;
         const committedRoom = result.snapshot.val();
-        applyCommittedRecordLounge(committedRoom.world.lounge);
+        applyCommittedRecordLounge(committedRoom.world.lounge,
+            destination === "dumpspot" ? ["dumpspotItems"] :
+                destination === "surface" ? ["placedItems"] : []);
         markSharedLoungeStateChanged();
         if (destination === "inventory") {
             const savedInventory = committedRoom.players?.[String(playerState.id)]?.inventory;
@@ -5963,6 +6200,8 @@ const SHARED_LOUNGE_STATE_FIELDS = [
     "builderDead",
     "deadBuilderName",
     "builderDeadId",
+    "bodyInventory",
+    "bodyKeyringAvailable",
     "messengerDead",
     "messengerDeadId",
     "messengerRevived",
@@ -6035,7 +6274,7 @@ function captureSharedLoungeState() {
 
 sharedLoungeBaseline = captureSharedLoungeState();
 
-function saveWorldState({ allowKettleState = false, allowBuilderCoughState = false } = {}) {
+function saveWorldState({ allowKettleState = false, allowBuilderCoughState = false, allowSpiritVoteState = false } = {}) {
     let latestLounge = null;
     try {
         latestLounge = JSON.parse(sharedStateStore.read(WORLD_STATE_KEY) || "{}").lounge || null;
@@ -6073,7 +6312,7 @@ function saveWorldState({ allowKettleState = false, allowBuilderCoughState = fal
         raven: worldState.raven,
         hall: worldState.hall,
         lounge: worldState.lounge
-    }), { allowKettleState, allowBuilderCoughState });
+    }), { allowKettleState, allowBuilderCoughState, allowSpiritVoteState });
     sharedLoungeBaseline = captureSharedLoungeState();
 }
 
@@ -10497,27 +10736,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
 
         return;
     }
-        const spiritDirectTargets = {
-            spiritEnterRealm: "loungeSpiritRealm",
-        spiritGoWoods1: "spiritWoods1",
-        spiritGoWoods2: "spiritWoods2",
-        spiritGoWoods3: "spiritWoods3",
-        spiritGoWoods2Return: "spiritWoods2",
-        spiritGoWoods4: "spiritWoods4",
-        spiritGoRealm2: "loungeSpiritRealm2",
-
-        spiritGoTunnelLight: "spiritTunnelLight",
-
-        spiritGoSwamp2: "spiritSwamp2",
-        spiritGoSwamp3: "spiritSwamp3",
-        spiritGoSwamp4: "spiritSwamp4",
-        spiritGoSwamp5: "spiritSwamp5",
-        spiritGoSwamp6: "spiritSwamp6",
-        spiritGoSwamp8: "spiritSwamp8",
-
-        spiritSwampLog: "spiritSwamp12",
-        spiritReturnToCabin: "exterior"
-    };
+    const spiritDirectTargets = SPIRIT_DIRECT_TARGETS;
 
     if (special === "spiritGoWoods2Continue") {
         const hasSolvedOwlPuzzle = (loungeState.spiritUnlockedChoices || [])
@@ -10734,59 +10953,32 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         }
         if (loungeState.builderDead || loungeState.builderRevived) return;
 
-        loungeState.bodyInventory = [...inventory].filter(item => item !== "headphones");
-        hamsterSnoreAudioEl.pause();
-        inventory.clear();
-        updateInventory();
-        loungeState.builderDead = true;
-        loungeState.deadBuilderName = playerState.name;
-        loungeState.builderDeadId = playerState.id;
-        loungeState.messengerDead = Boolean(isFourPlayerGame() && loungeState.roles.messenger);
-        loungeState.messengerDeadId = loungeState.messengerDead
-            ? Number(loungeState.roles.messenger)
-            : null;
-        loungeState.messengerRevived = false;
-        loungeState.spiritCoopActive = loungeState.messengerDead;
-        loungeState.spiritSharedScene = null;
-        loungeState.spiritVotes = {};
-        loungeState.spiritVoteResolvedToken = null;
-        loungeState.bodyKeyringAvailable = true;
-        loungeState.tvOn = false;
-        void updateLoungeRecordState({
-            playingRecord: null,
-            closeEyesReadyAt: null
+        void transferBuilderBody("death").then(committed => {
+            if (!committed) return;
+            hamsterSnoreAudioEl.pause();
+            syncLoungeAudio();
+            broadcastBuilderShock(playerState.name, loungeState.messengerDeadId);
+            runBuilderShockSequence(true, playerState.name);
         });
-        markSharedLoungeStateChanged();
-        saveWorldState();
-        syncLoungeAudio();
-        broadcastBuilderShock(playerState.name, loungeState.messengerDeadId);
-        runBuilderShockSequence(true, playerState.name);
         return;
     }
 
     if (special === "loungeBodyKeyring") {
         if (!loungeState.bodyKeyringAvailable || playerState.id === loungeState.builderDeadId) return;
-        loungeState.bodyKeyringAvailable = false;
-        loungeState.bodyInventory.filter(item => KEY_ITEMS.has(item)).forEach(item => inventory.add(item));
-        loungeState.bodyInventory = loungeState.bodyInventory.filter(item => !KEY_ITEMS.has(item));
-        inventory.add("seanceKey");
-        pickedUpItems.add("seanceKey");
-        updateInventory();
-        playKeysSound();
-        savePlayerState();
-        saveWorldState();
-        showToast("Nyckelknippan lades i ditt inventory.");
-        refreshScene();
+        void transferBuilderBody("keyring").then(committed => {
+            if (!committed) return;
+            playKeysSound();
+            showToast("Nyckelknippan lades i ditt inventory.");
+            refreshScene({ persistWorld: false });
+        });
         return;
     }
 
     if (special === "loungeBodyItem") {
         if (playerState.id === loungeState.builderDeadId || !loungeState.bodyInventory.includes(spot.bodyItem)) return;
-        if (!tryAddInventoryItem(spot.bodyItem)) return;
-        loungeState.bodyInventory.splice(loungeState.bodyInventory.indexOf(spot.bodyItem), 1);
-        updateInventory();
-        saveWorldState();
-        refreshScene();
+        void transferBuilderBody("item", spot.bodyItem).then(committed => {
+            if (committed) refreshScene({ persistWorld: false });
+        });
         return;
     }
 
@@ -10894,7 +11086,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         loungeState.spiritVotes = {};
         loungeState.spiritVoteResolvedToken = null;
         markSharedLoungeStateChanged();
-        saveWorldState();
+        saveWorldState({ allowSpiritVoteState: true });
         sharedStateStore.write(LOUNGE_EVENT_KEY, JSON.stringify({
             type: "messengerRevived",
             playerId: playerState.id,
@@ -14010,7 +14202,7 @@ function setKitchenCompletedDebugState() {
     currentScene = "upperHallway";
 
     markSharedLoungeStateChanged();
-    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true });
+    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true, allowSpiritVoteState: true });
     savePlayerState();
     updateInventory();
     refreshScene();
@@ -14176,7 +14368,7 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
     document.body.classList.remove("ouija-board-open");
     messageEl.classList.remove("visible");
     markSharedLoungeStateChanged();
-    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true });
+    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true, allowSpiritVoteState: true });
     savePlayerState();
     updateInventory();
     goToScene(startScene);
@@ -14299,7 +14491,7 @@ function resetWorldState() {
     messageEl.classList.remove("visible");
 
     markSharedLoungeStateChanged();
-    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true });
+    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true, allowSpiritVoteState: true });
     if (activeLobbyId && currentLobbyRoom) {
         const resetLobbyRoom = readLobbyRoom(activeLobbyId);
         Object.values(resetLobbyRoom.players).forEach(player => {
@@ -14629,10 +14821,10 @@ sharedStateStore.subscribe(event => {
             if (currentScene !== loungeState.spiritSharedScene) {
                 goToScene(loungeState.spiritSharedScene, { persist: false });
             }
-            setTimeout(tryResolveSpiritActionVote, 250);
         } else {
             refreshScene({ persistWorld: false });
         }
+        if (isSpiritCoopMember()) setTimeout(tryResolveSpiritActionVote, 250);
         syncHallHomeEnding();
         syncLoungeAudio();
         if (loungeState.spiritBanished) {
