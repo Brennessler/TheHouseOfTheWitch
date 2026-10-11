@@ -289,6 +289,94 @@ body.ending-sequence-active {
     display: none !important;
 }
 
+@font-face {
+    font-family: "WH Info Cinzel";
+    src: url("assets/fonts/Cinzel.ttf") format("truetype");
+    font-weight: 400 900;
+    font-display: swap;
+}
+
+#gameInfoHelp {
+    position: fixed;
+    top: 145px;
+    left: 222px;
+    z-index: 20;
+    width: 34px;
+    height: 34px;
+    color: #f2d295;
+    background: rgba(0, 0, 0, .72);
+    border: 1px solid #9e8a65;
+    border-radius: 6px;
+    font: 700 18px "Segoe UI", sans-serif;
+}
+body.in-lobby #gameInfoHelp,
+body.ending-sequence-active #gameInfoHelp { display: none; }
+
+#gameInfoOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: rgba(0, 0, 0, .12);
+}
+#gameInfoPanel {
+    position: absolute;
+    box-sizing: border-box;
+    top: 50%;
+    left: var(--info-center, 50%);
+    transform: translate(-50%, -50%);
+    width: var(--info-width, min(880px, calc(100vw - 32px)));
+    height: min(90vh, calc(var(--info-width, 880px) * .6667));
+    min-height: min(360px, 90vh);
+    padding: calc(var(--info-width, 880px) * .10) calc(var(--info-width, 880px) * .10) calc(var(--info-width, 880px) * .07);
+    display: flex;
+    flex-direction: column;
+    background: #d6be91 url("assets/ui/WH_UI_Info.webp") center / 100% 100% no-repeat;
+    color: #302014;
+    font-family: "WH Info Cinzel", Georgia, serif;
+    font-size: clamp(12px, 1.65vh, 18px);
+    line-height: 1.5;
+    box-shadow: 0 8px 30px #0008;
+}
+#gameInfoPanel h2 {
+    margin: 0 0 .65em;
+    font-size: clamp(18px, 2.5vh, 28px);
+    text-align: center;
+    line-height: 1.25;
+}
+#gameInfoContent { flex: 1; min-height: 0; overflow-y: auto; }
+#gameInfoContent p { margin: 0 0 .65em; }
+#gameInfoNavigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding-top: 10px;
+}
+#gameInfoPanel button {
+    font: inherit;
+    color: inherit;
+    background: #e4cfa5;
+    border: 1px solid #725637;
+    border-radius: 4px;
+    padding: 5px 10px;
+}
+#gameInfoPanel button:disabled { opacity: .35; }
+#gameInfoPanel button:focus-visible { outline: 3px solid #77511e; outline-offset: 2px; }
+#gameInfoClose {
+    position: absolute;
+    top: 7%;
+    right: 7%;
+}
+#gameInfoArrow {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+#gameInfoArrow line { stroke: #f2d295; stroke-width: 5; filter: drop-shadow(0 2px 2px #000); }
+
 #adminCodeResults {
     max-height: 150px;
     overflow: auto;
@@ -1032,10 +1120,10 @@ body:not(.environment-enabled) #lobbyDebugControls {
 }
 
 #todoPanel {
-    position: absolute;
-    top: 10px;
-    left: 0;
-    height: 45vh;
+    position: fixed;
+    top: 190px;
+    left: 10px;
+    height: min(45vh, calc(100vh - 200px));
     aspect-ratio: 1024 / 1536;
     z-index: 8;
     background: url("assets/ui/WH_UI_ToDo.webp") center / 100% 100% no-repeat;
@@ -2910,6 +2998,24 @@ body.raven-wordle #ravenPuzzleOverlay {
     </label>
 </div>
 <button id="inGameReconnectCode" type="button" hidden title="Klicka för att kopiera återanslutningskoden"></button>
+<button id="gameInfoHelp" type="button" hidden aria-label="Öppna spelhjälp" title="Spelhjälp" aria-haspopup="dialog">?</button>
+<div id="gameInfoOverlay" hidden>
+    <svg id="gameInfoArrow" aria-hidden="true" hidden>
+        <defs><marker id="gameInfoArrowhead" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto"><path d="M0,0 L4,2 L0,4 Z" fill="#f2d295"/></marker></defs>
+        <line id="gameInfoArrowLine" marker-end="url(#gameInfoArrowhead)"/>
+    </svg>
+    <section id="gameInfoPanel" role="dialog" aria-modal="true" aria-labelledby="gameInfoTitle" tabindex="-1">
+        <button id="gameInfoClose" type="button" aria-label="Stäng spelhjälp" hidden>×</button>
+        <h2 id="gameInfoTitle"></h2>
+        <div id="gameInfoContent" aria-live="polite"></div>
+        <nav id="gameInfoNavigation" aria-label="Informationssidor">
+            <button id="gameInfoPrevious" type="button" disabled>Föregående</button>
+            <span id="gameInfoCounter" aria-live="polite"></span>
+            <button id="gameInfoNext" type="button">Nästa</button>
+        </nav>
+    </section>
+</div>
+<!-- End game info -->
 <div id="kettleTimerDisplay"></div>
 <div id="explosionOverlay">
     <div id="explosionImage"></div>
@@ -8384,25 +8490,21 @@ Klent virke.
 // Baba`,
     "assets/ui/WH_UI_Kirknote.webp": `Mormor,
 
-Jag tog toanyckeln.
+Jag tog toanyckeln
 
-Att låsa in en nyckel i ett kassaskåp är exakt den sortens idé som får folk att dö på toaletten.
+Det är galenskap att ha den i ett låst kassaskåp, det är illa nog att behöva släpa dina gubbar av toastolen.
 
-Vilket de också nästan gör.
+Jag hängde nyckeln i elskåpet uppe i loungen.
+Det är åtminstone ett ställe folk faktiskt kan hitta.
 
-Helt ärligt förstår jag inte varför du fortfarande gifter dig. De flesta av dina män tillbringar halva äktenskapet på dass och andra halvan med att återhämta sig från mystiska svampgrytor.
-
-Numera låser de ju in sig där inne så fort du börjar laga mat.
-
-Hela huset är beroende av den där nyckeln.
-
-Jag flyttade den därför till elskåpet uppe i loungen. Det är åtminstone ett ställe folk faktiskt kan hitta.
+Helt ärligt förstår jag inte varför du fortfarande gifter dig. De flesta av dina män tillbringar halva äktenskapet på dass och andra halvan med att återhämta sig från dina svampgrytor.
+Numera låser de ju in sig där inne så fort du börjar laga mat. Hela huset är beroende av den där nyckeln.
 
 Om ni behöver komma in till mig ligger min reservnyckel här.
 
-Mamma tycker säkert att jag överdriver, men någon måste ju vara den vuxna i familjen.
+Mamma tycker säkert att jag överdriver men någon måste ju vara den vuxna i familjen.
 
-// Kirke`,
+//Kirke`,
     "assets/ui/WH_UI_Kassnote.webp": `Kirke,
 
 Jag hittade nyckeln i elskåpet.
@@ -8713,6 +8815,7 @@ function startHomeEndingSequence(startAt = hallState.homeEndingStartedAt) {
     if (!hallState.homeSequenceStarted) return;
     if (!homeEndingSequenceActive) {
         homeEndingSequenceActive = true;
+        resetGameInfo();
         document.body.classList.add("ending-sequence-active");
         homeEndingOverlayEl.hidden = environment;
         homeEndingVideoEl.hidden = true;
@@ -13245,6 +13348,172 @@ const reconnectCodeInputEl = document.getElementById("reconnectCodeInput");
 const reconnectCodeDisplayEl = document.getElementById("reconnectCodeDisplay");
 const reconnectCodeValueEl = document.getElementById("reconnectCodeValue");
 const inGameReconnectCodeEl = document.getElementById("inGameReconnectCode");
+const GAME_INFO_PAGES = [
+    {
+        title: "Välkommen till Häxans Hus",
+        paragraphs: [
+            "Ni har blivit inbjudna till Häxan Kassandra för att hämta Margits bok.",
+            "Ni navigerar genom att klicka och muspekaren kommer ändra form baserat på vad ett klick kommer göra.",
+            "Alla items som kan plockas upp lyser upp om ni hovrar med musen över dem."
+        ]
+    },
+    {
+        title: "Föremål och inventory",
+        paragraphs: [
+            "Ditt inventory finns till höger.",
+            "Klicka på föremål för att använda dem.",
+            "Dra föremål till platser i spelvärlden.",
+            "Vissa roller kan använda saker som andra inte kan.",
+            "Utforska, experimentera och prata med varandra."
+        ]
+    },
+    {
+        title: "Att göra-listan",
+        paragraphs: [
+            'Till vänster finns er "att göra"-lista.',
+            "Den visar gruppens nuvarande mål.",
+            "När något viktigt är klart stryks det automatiskt och nya saker läggs till.",
+            "Om ni är osäkra på vad ni ska göra härnäst:",
+            "Titta i listan."
+        ]
+    },
+    {
+        title: "Ingen ser allt",
+        paragraphs: [
+            "Olika spelare får tillgång till olika ledtrådar.",
+            "Prata med varandra.",
+            "Beskriv vad ni ser.",
+            "Om en spelare verkar sysslolös sitter lösningen förmodligen hos någon annan.",
+            "Och framför allt...",
+            "Glöm inte varför ni kom hit.",
+            "Margits bok väntar någonstans i huset."
+        ]
+    }
+];
+const gameInfoOverlayEl = document.getElementById("gameInfoOverlay");
+const gameInfoPanelEl = document.getElementById("gameInfoPanel");
+const gameInfoHelpEl = document.getElementById("gameInfoHelp");
+const gameInfoCloseEl = document.getElementById("gameInfoClose");
+const gameInfoPreviousEl = document.getElementById("gameInfoPrevious");
+const gameInfoNextEl = document.getElementById("gameInfoNext");
+let gameInfoPage = 0;
+let gameInfoMode = null;
+let gameInfoReturnFocus = null;
+
+function positionGameInfo() {
+    const code = document.getElementById("inGameReconnectCode");
+    if (!code.hidden) gameInfoHelpEl.style.left = `${code.getBoundingClientRect().right + 6}px`;
+    if (gameInfoOverlayEl.hidden) return;
+    const inventoryRect = document.getElementById("inventory").getBoundingClientRect();
+    const todoRect = document.getElementById("todoPanel").getBoundingClientRect();
+    const left = Math.max(16, todoRect.right + 20);
+    const right = Math.min(window.innerWidth - 16, inventoryRect.left - 20);
+    const hasPanelSpace = right - left >= 360;
+    const width = Math.min(880, window.innerHeight * 1.35,
+        hasPanelSpace ? right - left : window.innerWidth - 32);
+    gameInfoPanelEl.style.setProperty("--info-width", `${width}px`);
+    gameInfoPanelEl.style.setProperty("--info-center", `${hasPanelSpace ? (left + right) / 2 : window.innerWidth / 2}px`);
+    // Use the rendered panels, not scene-relative coordinates; on narrow screens omit overlapping arrows.
+    const arrow = document.getElementById("gameInfoArrow");
+    arrow.hidden = true;
+    if (gameInfoPage !== 1 && gameInfoPage !== 2) return;
+    const panel = gameInfoPanelEl.getBoundingClientRect();
+    const target = gameInfoPage === 1 ? inventoryRect : todoRect;
+    if (!target.width || !target.height) return;
+    const toRight = gameInfoPage === 1;
+    const x1 = toRight ? panel.right + 6 : panel.left - 6;
+    const x2 = toRight ? target.left + 8 : target.right - 8;
+    if (toRight ? x2 <= x1 + 15 : x2 >= x1 - 15) return;
+    const y2 = Math.max(target.top + 12, Math.min(target.bottom - 12, panel.top + panel.height / 2));
+    const line = document.getElementById("gameInfoArrowLine");
+    Object.entries({ x1, y1: y2, x2, y2 }).forEach(([key, value]) => line.setAttribute(key, value));
+    arrow.hidden = false;
+}
+
+function renderGameInfo() {
+    const page = GAME_INFO_PAGES[gameInfoPage];
+    document.getElementById("gameInfoTitle").textContent = page.title;
+    const content = document.getElementById("gameInfoContent");
+    content.replaceChildren(...page.paragraphs.map(text => {
+        const paragraph = document.createElement("p");
+        paragraph.textContent = text;
+        return paragraph;
+    }));
+    content.scrollTop = 0;
+    document.getElementById("gameInfoCounter").textContent = `${gameInfoPage + 1}/4`;
+    gameInfoPreviousEl.disabled = gameInfoPage === 0;
+    const finalPage = gameInfoPage === GAME_INFO_PAGES.length - 1;
+    gameInfoNextEl.hidden = finalPage && gameInfoMode === "help";
+    gameInfoNextEl.textContent = finalPage && gameInfoMode === "initial" ? "Börja spela" : "Nästa";
+    gameInfoCloseEl.hidden = gameInfoMode !== "help";
+    positionGameInfo();
+}
+
+function openGameInfo(mode = "help") {
+    if (!gameStarted || homeEndingSequenceActive || homeEndingExitInProgress ||
+        document.body.classList.contains("in-lobby") || !gameInfoOverlayEl.hidden) return;
+    gameInfoReturnFocus = document.activeElement;
+    gameInfoMode = mode;
+    gameInfoPage = 0;
+    gameInfoOverlayEl.hidden = false;
+    renderGameInfo();
+    gameInfoPanelEl.focus();
+}
+
+function closeGameInfo(restoreFocus = true) {
+    gameInfoOverlayEl.hidden = true;
+    document.getElementById("gameInfoArrow").hidden = true;
+    gameInfoMode = null;
+    gameInfoPage = 0;
+    if (restoreFocus && gameInfoReturnFocus?.isConnected) gameInfoReturnFocus.focus();
+    gameInfoReturnFocus = null;
+}
+
+function resetGameInfo() {
+    closeGameInfo(false);
+    gameInfoHelpEl.hidden = true;
+}
+
+function updateGameInfoHelp() {
+    gameInfoHelpEl.hidden = !gameStarted || homeEndingSequenceActive || homeEndingExitInProgress ||
+        document.body.classList.contains("in-lobby");
+    positionGameInfo();
+}
+
+gameInfoHelpEl.addEventListener("click", () => openGameInfo("help"));
+gameInfoCloseEl.addEventListener("click", () => {
+    if (gameInfoMode === "help") closeGameInfo();
+});
+gameInfoPreviousEl.addEventListener("click", () => {
+    if (!gameInfoMode || gameInfoPage === 0) return;
+    gameInfoPage--;
+    renderGameInfo();
+});
+gameInfoNextEl.addEventListener("click", () => {
+    if (!gameInfoMode) return;
+    if (gameInfoPage < GAME_INFO_PAGES.length - 1) {
+        gameInfoPage++;
+        renderGameInfo();
+        if (gameInfoNextEl.hidden) gameInfoPreviousEl.focus();
+    } else if (gameInfoMode === "initial") closeGameInfo();
+});
+window.addEventListener("resize", positionGameInfo);
+document.addEventListener("keydown", event => {
+    if (gameInfoOverlayEl.hidden) return;
+    event.stopImmediatePropagation();
+    if (event.key === "Escape" && gameInfoMode === "help") {
+        event.preventDefault();
+        closeGameInfo();
+    } else if (event.key === "Tab") {
+        event.preventDefault();
+        const buttons = [...gameInfoPanelEl.querySelectorAll("button")].filter(button => !button.hidden && !button.disabled);
+        const index = buttons.indexOf(document.activeElement);
+        buttons[(index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus();
+    } else if (!gameInfoPanelEl.contains(event.target)) event.preventDefault();
+}, true);
+["keypress", "keyup"].forEach(type => document.addEventListener(type, event => {
+    if (!gameInfoOverlayEl.hidden) event.stopImmediatePropagation();
+}, true));
 const adminLoginFormEl = document.getElementById("adminLoginForm");
 const adminCodeResultsEl = document.getElementById("adminCodeResults");
 const adminCodeListEl = document.getElementById("adminCodeList");
@@ -13301,6 +13570,7 @@ function setVisibleReconnectCode(code) {
     reconnectCodeDisplayEl.hidden = !code;
     inGameReconnectCodeEl.textContent = code ? `Kod: ${formattedCode}` : "";
     inGameReconnectCodeEl.hidden = !code || !gameStarted;
+    updateGameInfoHelp();
 }
 
 async function copyReconnectCode() {
@@ -13974,10 +14244,18 @@ function handleLobbyIntroVideoPlaybackRetry() {
     }
 }
 
+function handleLobbyIntroVideoEnded() {
+    const showInitialInfo = !gameStarted && !environment && !!activeLobbyId && !!lobbySeatId &&
+        lobbyIntroStarted && lobbyIntroFinished && !homeEndingSequenceActive && !homeEndingExitInProgress &&
+        !lobbyIntroVideoOverlayEl.hidden && lobbyIntroVideoEl.ended && lobbyIntroVideoEl.played.length > 0;
+    enterGameFromLobby();
+    if (showInitialInfo && gameStarted) openGameInfo("initial");
+}
+
 function initializeLobbyIntroVideo() {
     lobbyIntroVideoEl.addEventListener("canplay", markLobbyIntroVideoReady);
     lobbyIntroVideoEl.addEventListener("error", handleLobbyIntroVideoLoadError);
-    lobbyIntroVideoEl.addEventListener("ended", enterGameFromLobby);
+    lobbyIntroVideoEl.addEventListener("ended", handleLobbyIntroVideoEnded);
     lobbyIntroRetryButtonEl.addEventListener("click", startLobbyIntroVideo);
     lobbyIntroVideoRetryButtonEl.addEventListener("click", handleLobbyIntroVideoPlaybackRetry);
 }
@@ -14175,6 +14453,7 @@ function saveDebugPlayerState(seat, updates) {
 }
 
 function leaveLobby({ completedEnding = false } = {}) {
+    resetGameInfo();
     sessionStorage.removeItem("wh_activeLobbyId");
     if (activeLobbyId && lobbySeatId && currentLobbyRoom) {
         const player = currentLobbyRoom.players[String(lobbySeatId)];
@@ -14795,6 +15074,7 @@ document.getElementById("debugSpiritCheckpointBtn").addEventListener("click", ()
 });
 
 function resetWorldState({ persist = true } = {}) {
+    resetGameInfo();
     todoResetting = true;
     renderTodo(null);
     if (persist) void clearTodo();
