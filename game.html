@@ -1702,7 +1702,8 @@ body.raven-wordle #ravenPuzzleOverlay {
     min-height: 0;
 }
 
-#recipeBookOverlay {
+#recipeBookOverlay,
+#symbolBookOverlay {
     display: none;
     position: fixed;
     inset: 0;
@@ -1715,11 +1716,13 @@ body.raven-wordle #ravenPuzzleOverlay {
     cursor: pointer;
 }
 
-#recipeBookOverlay.visible {
+#recipeBookOverlay.visible,
+#symbolBookOverlay.visible {
     display: flex;
 }
 
-#recipeBookImage {
+#recipeBookImage,
+#symbolBookImage {
     max-width: min(900px, 92vw);
     max-height: 92vh;
     object-fit: contain;
@@ -2957,6 +2960,9 @@ body.raven-wordle #ravenPuzzleOverlay {
 <div id="recipeBookOverlay" role="dialog" aria-modal="true" aria-label="Receptbok">
     <img id="recipeBookImage" src="assets/ui/WH_UI_Recipe_book.webp" alt="Receptbok">
 </div>
+<div id="symbolBookOverlay" role="dialog" aria-modal="true" aria-label="Symbolbok">
+    <img id="symbolBookImage" src="assets/ui/WH_UI_Symbol_Book.webp" alt="Symbolbok">
+</div>
 
 <div id="noteOverlay" role="dialog" aria-modal="true" aria-label="Lapp">
     <div id="notePage">
@@ -3357,9 +3363,9 @@ const SPIRIT_HOTSPOTS = {
     ],
 
     loungeSpiritRealm: [
-        spiritChoice("loungeSpiritRealm", "spiritWrongPath", "Stig vänster", "fågel", 9.4, 37.3, 15.2, 26.5, true),
+        spiritChoice("loungeSpiritRealm", "spiritWrongPath", "Stig vänster", "korp", 9.4, 37.3, 15.2, 26.5, true),
         spiritChoice("loungeSpiritRealm", "spiritGoWoods1", "Stig höger", "spiral", 74.4, 33.8, 16.5, 29.6, true),
-        spiritSymbol("WH_AST_SeanceRoom_Bird_v01.webp", "Fågel", 11.7, 41.2),
+        spiritSymbol("WH_AST_SeanceRoom_Bird_v01.webp", "Korp", 11.7, 41.2),
         spiritSymbol("WH_AST_SeanceRoom_Spiral_v01.webp", "Spiral", 77.1, 40.8)
     ],
 
@@ -3389,11 +3395,11 @@ const SPIRIT_HOTSPOTS = {
         spiritChoice("spiritWoods3", "spiritWrongPath", "Stig 1", "berg", 4.1, 26.3, 9.7, 17.4, true),
         spiritChoice("spiritWoods3", "spiritWrongPath", "Stig 2", "varg", 36.5, 22.4, 9, 20.4, true),
         spiritChoice("spiritWoods3", "spiritWrongPath", "Stig 3", "träd", 59.6, 23.3, 9.4, 27.9, true),
-        spiritChoice("spiritWoods3", "spiritGoRealm2", "Stig 4", "lampa", 79.3, 29.6, 8.3, 20.5, true),
+        spiritChoice("spiritWoods3", "spiritGoRealm2", "Stig 4", "lykta", 79.3, 29.6, 8.3, 20.5, true),
         spiritSymbol("WH_AST_SeanceRoom_Montain_v01.webp", "Berg", 4.2, 27),
         spiritSymbol("WH_AST_SeanceRoom_Wolf_v01.webp", "Varg", 36.5, 24.4),
         spiritSymbol("WH_AST_SeanceRoom_Tree_v01.webp", "Träd", 59.9, 28.4),
-        spiritSymbol("WH_AST_SeanceRoom_Lamp_v01.webp", "Lampa", 78.5, 31)
+        spiritSymbol("WH_AST_SeanceRoom_Lamp_v01.webp", "Lykta", 78.5, 31)
     ],
 
     spiritWoods4: [
@@ -4242,7 +4248,8 @@ const scenes = {
         image: "assets/environments/seanceroom/WH_VIEW_SEANCE_OuijaBoard_MASTER_v01.webp",
         hotspots: [
             { x: 31.3, y: 96, w: 50, h: 9.3, target: "seanceRoom", label: "Tillbaka" },
-            { x: 35.4, y: 69, w: 41.7, h: 24.6, special: "seanceOuijaOverlay", label: "Titta på ouija-brädet" }
+            { x: 35.4, y: 69, w: 41.7, h: 24.6, special: "seanceOuijaOverlay", label: "Titta på ouija-brädet" },
+            { x: 3.9, y: 54.1, w: 21.3, h: 8.9, special: "symbolBook", label: "Symbolboken" }
         ]
     },
 
@@ -8089,6 +8096,14 @@ function openRecipeBook() {
     document.getElementById("recipeBookOverlay").classList.add("visible");
 }
 
+function closeSymbolBook() {
+    document.getElementById("symbolBookOverlay").classList.remove("visible");
+}
+
+function openSymbolBook() {
+    document.getElementById("symbolBookOverlay").classList.add("visible");
+}
+
 const NOTE_TEXT_BY_IMAGE = {
     "assets/ui/WH_UI_Doornote.webp": `Kära gäster,
 
@@ -8988,6 +9003,10 @@ document.getElementById("recipeBookOverlay").addEventListener("click", event => 
     if (event.target.id === "recipeBookOverlay") {
         closeRecipeBook();
     }
+});
+
+document.getElementById("symbolBookOverlay").addEventListener("click", event => {
+    if (event.target.id === "symbolBookOverlay") closeSymbolBook();
 });
 
 document.getElementById("noteOverlay").addEventListener("click", event => {
@@ -9917,7 +9936,7 @@ function equipSpiritFlashlight() {
 const SPIRIT_CORRECT_ANSWERS = new Set([
     "loungeSpiritRealm:spiral",
     "spiritWoods1:sol",
-    "spiritWoods3:lampa",
+    "spiritWoods3:lykta",
     "loungeSpiritRealm2:uggla",
     "spiritTunnel:ficklampa",
     "spiritTunnelRun13:yxa",
@@ -11187,6 +11206,11 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         return;
     }
 
+    if (special === "symbolBook") {
+        openSymbolBook();
+        return;
+    }
+
     if (special === "loungeAlbumSlot") {
         const slotId = String(spot.albumSlot);
         const placedSet = loungeState.albumShelfSlots[slotId];
@@ -12180,6 +12204,7 @@ const CURSOR_BY_SPECIAL = {
     spiritForestRight: "right",
     readNote: "look",
     recipeBook: "look",
+    symbolBook: "look",
     tarotDeck: "look",
     seanceOuijaOverlay: "look",
     openSpiritVision: "look",
