@@ -1684,13 +1684,21 @@ body.raven-wordle #ravenPuzzleOverlay {
 
 #ravenPuzzlePanel {
     position: relative;
-    width: min(980px, calc(100vw - 12px));
-    padding: 62px 78px 44px;
+    width: min(980px, 100%, calc((100vh - 120px) * 1.5));
+    aspect-ratio: 1.5;
     background-image: url("assets/ui/WH_UI_Frame_Large.webp");
     background-size: 100% 100%;
     background-repeat: no-repeat;
     box-sizing: border-box;
     color: #f5ebd8;
+}
+
+#ravenPuzzleContent {
+    position: absolute;
+    inset: 26% 18% 21%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 #recipeBookOverlay {
@@ -1841,15 +1849,24 @@ body.raven-wordle #ravenPuzzleOverlay {
 
 #ouijaMessage {
     position: absolute;
-    bottom: 2%;
+    top: 77%;
     left: 50%;
     z-index: 4;
-    max-width: 80%;
+    width: 43%;
+    min-height: 15%;
+    box-sizing: border-box;
     transform: translateX(-50%);
-    padding: 4px 10px;
-    color: #fff2d5;
-    background: rgba(25, 18, 12, 0.85);
-    font-size: 16px;
+    padding: 8px 12px;
+    border: 2px solid rgba(255, 224, 159, 0.8);
+    border-radius: 8px;
+    color: #fff5df;
+    background: rgba(25, 18, 12, 0.94);
+    font-size: clamp(18px, 3vw, 38px);
+    font-weight: 700;
+    text-shadow: 0 2px 3px #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
     overflow-wrap: anywhere;
     pointer-events: none;
@@ -1900,16 +1917,23 @@ body.raven-wordle #ravenPuzzleOverlay {
 #ravenPuzzleHeader {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 14px;
-    margin-bottom: 18px;
+    margin-bottom: 6px;
     font-size: 18px;
     font-weight: 700;
     letter-spacing: 0.04em;
 }
 
 #ravenPuzzleClose {
-    padding: 6px 12px;
+    position: absolute;
+    top: 3%;
+    right: 3%;
+    z-index: 1;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 28px;
     border: 1px solid #d4b07c;
     border-radius: 4px;
     background: rgba(80, 55, 30, 0.8);
@@ -1917,23 +1941,34 @@ body.raven-wordle #ravenPuzzleOverlay {
     cursor: pointer;
 }
 
+#ravenPuzzleTitle {
+    font-family: "Segoe Print", "Bradley Hand", cursive;
+    font-size: clamp(20px, 3vw, 32px);
+    font-weight: 700;
+    transform: rotate(-5deg);
+    color: #302014;
+}
+
 #ravenPuzzleBoard {
     display: grid;
-    grid-template-columns: repeat(9, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 22px;
-    padding: 14px 10px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+    flex: 1;
+    min-height: 0;
+    gap: 4px;
+    width: min(100%, 200px);
+    margin: 0 auto 6px;
+    padding: 0;
 }
 
 .raven-cell {
-    aspect-ratio: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 5px;
     border: 1px solid rgba(220, 200, 160, 0.6);
     background: rgba(26, 22, 18, 0.85);
-    font-size: clamp(14px, 2vw, 26px);
+    font-size: clamp(10px, 1.8vh, 20px);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1956,35 +1991,10 @@ body.raven-wordle #ravenPuzzleOverlay {
     border-color: rgba(202, 93, 93, 0.9);
 }
 
-#ravenPuzzleKeyboard {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    justify-content: center;
-    margin-bottom: 18px;
-    padding: 10px 0;
-}
-
-.raven-key {
-    min-width: 30px;
-    height: 34px;
-    padding: 0 10px;
-    border: 1px solid #d4b07c;
-    border-radius: 4px;
-    background: rgba(64, 45, 26, 0.8);
-    color: #f8f0df;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.raven-key.wide {
-    min-width: 72px;
-}
-
 #ravenPuzzleStatus {
     min-height: 22px;
     font-size: 13px;
-    color: #e8d8b7;
+    color: #302014;
     text-align: center;
 }
 
@@ -2823,6 +2833,8 @@ body.raven-wordle #ravenPuzzleOverlay {
 <audio id="batteryAudio" src="assets/audio/battery.mp3" preload="none"></audio>
 <audio id="hingeAudio" src="assets/audio/hinge.mp3" preload="none"></audio>
 <audio id="ravenCawAudio" src="assets/audio/Caw.mp3" preload="none"></audio>
+<audio id="ouijaTypeAudio" src="assets/audio/type.mp3" preload="none"></audio>
+<audio id="ouijaSendAudio" src="assets/audio/send.mp3" preload="none"></audio>
 <audio id="wallDemoAudio" src="assets/audio/wallDemo.mp3" preload="none"></audio>
 <audio id="sprayAudio" src="assets/audio/spray.mp3" preload="none"></audio>
 <audio id="potionBottledAudio" src="assets/audio/potion_bottled.mp3" preload="none"></audio>
@@ -4341,7 +4353,7 @@ const worldState = {
         solved: false,
         guesses: [],
         currentGuess: "",
-        answer: "NEVERMORE"
+        answer: "ALLAN"
     },
     hall: {
         wallBroken: false,
@@ -6375,6 +6387,7 @@ function loadWorldState() {
     replaceStateObject(worldState.laboratory, DEFAULT_WORLD_STATE.laboratory, saved.laboratory);
     replaceStateObject(worldState.exterior, DEFAULT_WORLD_STATE.exterior, saved.exterior);
     replaceStateObject(worldState.raven, DEFAULT_WORLD_STATE.raven, saved.raven);
+    normalizeRavenPuzzleAnswer();
     replaceStateObject(worldState.hall, DEFAULT_WORLD_STATE.hall, saved.hall);
     worldState.hall.homeVotes ||= {};
     replaceStateObject(worldState.lounge, DEFAULT_WORLD_STATE.lounge, saved.lounge);
@@ -8199,6 +8212,15 @@ function closeNoteOverlay() {
 const ouijaPlanchetteEl = document.getElementById("ouijaPlanchette");
 const ouijaBoardImageEl = document.getElementById("ouijaBoardImage");
 const ouijaMessageEl = document.getElementById("ouijaMessage");
+const ouijaTypeAudioEl = document.getElementById("ouijaTypeAudio");
+const ouijaSendAudioEl = document.getElementById("ouijaSendAudio");
+
+function playOuijaInputSound(audio) {
+    audio.currentTime = 0;
+    audio.volume = fxVolume;
+    audio.muted = fxMuted;
+    audio.play().catch(error => console.warn("Ouija-ljudet kunde inte spelas:", error));
+}
 const ouijaLetterHintsEl = document.getElementById("ouijaLetterHints");
 const OUIJA_ROWS = [
     { symbols: "ABCDEFGHIJKLMNO", xs: [11, 17, 23, 28, 34, 39, 45, 51, 56, 61, 66, 72, 78, 84, 91], ys: [46, 42, 37, 34, 32, 31, 30, 30, 30, 31, 33, 36, 39, 42, 45] },
@@ -8260,6 +8282,7 @@ ouijaPlanchetteEl.addEventListener("pointermove", event => {
             ouijaText += symbol;
             ouijaMessageEl.textContent = ouijaText;
             ouijaLastSymbol = symbol;
+            playOuijaInputSound(ouijaTypeAudioEl);
             flashOuijaPlanchette();
         }, 300);
     }
@@ -8283,8 +8306,9 @@ ouijaPlanchetteEl.addEventListener("pointerup", event => {
         playerId: playerState.id,
         timestamp: Date.now()
     })).then(saved => {
+        if (saved) playOuijaInputSound(ouijaSendAudioEl);
         ouijaMessageEl.textContent = saved
-            ? "Skickat"
+            ? `Skickat: ${messageText}`
             : "Kunde inte skicka. Kontrollera anslutningen.";
     }).catch(error => {
         console.error("Ouija-meddelandet kunde inte skickas.", error);
@@ -11596,7 +11620,7 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
         playWallDemoSound();
         updateInventory();
         saveWorldState();
-        showToast("Väggen krossas och en trappa avslöjas!");
+        showToast("Du slog ned väggen med släggan, i huset du hälsar på i..");
         refreshScene();
         return;
     }
@@ -11654,7 +11678,16 @@ function handleSpecialDrop(special, draggedValue, spot = {}, spiritVoteApproved 
     }
 }
 
+function normalizeRavenPuzzleAnswer() {
+    if (ravenState.answer !== "ALLAN") {
+        ravenState.guesses = [];
+        ravenState.currentGuess = "";
+    }
+    ravenState.answer = "ALLAN";
+}
+
 function resetRavenPuzzle() {
+    ravenState.answer = "ALLAN";
     ravenState.started = false;
     ravenState.fed = false;
     ravenState.solved = false;
@@ -11674,52 +11707,35 @@ function ensureRavenPuzzleUI() {
     if (!overlay.querySelector("#ravenPuzzlePanel")) {
         const panel = document.createElement("div");
         panel.id = "ravenPuzzlePanel";
+        const content = document.createElement("div");
+        content.id = "ravenPuzzleContent";
 
         const header = document.createElement("div");
         header.id = "ravenPuzzleHeader";
-        header.innerHTML = '<span></span><button id="ravenPuzzleClose" type="button">Stäng</button>';
+        header.innerHTML = '<span id="ravenPuzzleTitle">Birdle</span>';
+        const closeButton = document.createElement("button");
+        closeButton.id = "ravenPuzzleClose";
+        closeButton.type = "button";
+        closeButton.textContent = "×";
+        closeButton.setAttribute("aria-label", "Stäng Birdle");
 
         const board = document.createElement("div");
         board.id = "ravenPuzzleBoard";
 
-        const keyboard = document.createElement("div");
-        keyboard.id = "ravenPuzzleKeyboard";
-
         const status = document.createElement("div");
         status.id = "ravenPuzzleStatus";
 
-        panel.appendChild(header);
-        panel.appendChild(board);
-        panel.appendChild(keyboard);
-        panel.appendChild(status);
+        content.appendChild(header);
+        content.appendChild(board);
+        content.appendChild(status);
+        panel.appendChild(content);
+        panel.appendChild(closeButton);
         overlay.appendChild(panel);
 
         document.getElementById("ravenPuzzleClose").addEventListener("click", () => {
             closeRavenPuzzle();
         });
 
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.className = "raven-key";
-            button.textContent = letter;
-            button.addEventListener("click", () => handleRavenLetter(letter));
-            keyboard.appendChild(button);
-        });
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "raven-key wide";
-        deleteBtn.textContent = "Back";
-        deleteBtn.addEventListener("click", () => handleRavenLetter("BACKSPACE"));
-        keyboard.appendChild(deleteBtn);
-
-        const submitBtn = document.createElement("button");
-        submitBtn.type = "button";
-        submitBtn.className = "raven-key wide";
-        submitBtn.textContent = "Gissa";
-        submitBtn.addEventListener("click", submitRavenGuess);
-        keyboard.appendChild(submitBtn);
     }
 
     return overlay;
@@ -11783,7 +11799,7 @@ function handleRavenLetter(letter) {
 
 function submitRavenGuess() {
     if (ravenState.currentGuess.length !== ravenState.answer.length) {
-        showToast("Du måste skriva nio bokstäver.");
+        showToast("Du måste skriva fem bokstäver.");
         return;
     }
 
