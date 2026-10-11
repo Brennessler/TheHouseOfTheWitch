@@ -394,9 +394,46 @@ body.ending-sequence-active #gameInfoHelp { display: none; }
 #gameInfoCursorExamples img { width: 32px; height: 32px; object-fit: contain; }
 
 #adminCodeResults {
-    max-height: 150px;
-    overflow: auto;
+    position: fixed;
+    inset: 0;
+    z-index: 30000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, .85);
+    color: #eee4d2;
     text-align: left;
+}
+
+#adminDashboardPanel {
+    width: min(1400px, 100%);
+    max-height: calc(100dvh - 40px);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 20px;
+    background: #201e1b;
+    border: 1px solid #d1ae71;
+    border-radius: 8px;
+}
+
+#adminDashboardPanel h2 { margin-top: 0; }
+#adminCodeList {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(250px, 1fr));
+    gap: 16px;
+    overflow-x: auto;
+    margin: 16px 0;
+}
+.admin-lobby-column { padding: 12px; background: #302d28; overflow-wrap: anywhere; }
+.admin-player { border-top: 1px solid #8a7759; padding: 10px 0; }
+.admin-player h4 { margin: 0 0 8px; }
+#adminDashboardPanel button:focus-visible,
+#adminCodeList:focus-visible { outline: 3px solid #f2d295; outline-offset: 3px; }
+#adminDashboardStatus { white-space: pre-line; }
+#adminDashboardPanel .lobby-actions { flex-wrap: wrap; }
+@media (max-width: 600px) {
+    #adminCodeResults { padding: 8px; }
+    #adminDashboardPanel { padding: 12px; max-height: calc(100dvh - 16px); }
 }
 
 .admin-code-row {
@@ -2871,19 +2908,10 @@ body.raven-wordle #ravenPuzzleOverlay {
                 <label for="adminPasswordInput">Lösenord</label>
                 <input id="adminPasswordInput" type="password" autocomplete="current-password" required>
                 <div class="lobby-actions">
-                    <button class="lobby-primary" type="submit">Visa återanslutningskoder</button>
+                    <button class="lobby-primary" type="submit">Visa lobbyöversikt</button>
                     <button id="backFromAdminButton" class="lobby-secondary" type="button">Tillbaka</button>
                 </div>
             </form>
-            <div id="adminCodeResults" class="lobby-book-form" hidden>
-                <h2>Återanslutningskoder</h2>
-                <div id="adminCodeList"></div>
-                <div class="lobby-actions">
-                    <button id="adminRefreshCodesButton" class="lobby-secondary" type="button">Uppdatera</button>
-                    <button id="continueAsAdminButton" class="lobby-primary" type="button">Fortsätt till spelet</button>
-                    <button id="adminSignOutButton" class="lobby-secondary" type="button">Logga ut</button>
-                </div>
-            </div>
         </section>
 
         <section id="lobbyNameView" class="lobby-book-view" hidden>
@@ -2935,6 +2963,21 @@ body.raven-wordle #ravenPuzzleOverlay {
             </div>
         </aside>
     </main>
+</div>
+
+<div id="adminCodeResults" hidden>
+    <section id="adminDashboardPanel" role="dialog" aria-modal="true" aria-labelledby="adminDashboardTitle" tabindex="-1">
+        <h2 id="adminDashboardTitle">Lobbyöversikt — administratör</h2>
+        <p>Endast läsning. Alla fyra lobbies uppdateras automatiskt.</p>
+        <p id="adminDashboardStatus" role="status" aria-live="polite"></p>
+        <div id="adminCodeList" tabindex="0" aria-label="Fyra lobbies; rulla i sidled på smala skärmar"></div>
+        <div class="lobby-actions">
+            <button id="adminRefreshCodesButton" class="lobby-secondary" type="button">Uppdatera</button>
+            <button id="continueAsAdminButton" class="lobby-primary" type="button">Fortsätt till spelet</button>
+            <button id="adminSignOutButton" class="lobby-secondary" type="button">Logga ut</button>
+            <button id="adminDashboardCloseButton" class="lobby-secondary" type="button">Stäng</button>
+        </div>
+    </section>
 </div>
 
 <div id="lobbyIntroVideoOverlay" hidden>
@@ -3321,7 +3364,10 @@ function updateAdminDebugAccess(user) {
         ADMIN_DEBUG_EMAILS.has(user.email.trim().toLowerCase())
     );
     document.body.classList.toggle("environment-enabled", environment);
-    if (!environment) document.body.classList.remove("debug");
+    if (!environment) {
+        document.body.classList.remove("debug");
+        closeAdminDashboard();
+    }
 }
 
 const startScene = "exterior";
@@ -6670,6 +6716,27 @@ async function clearTodo() {
         showFirebaseError("Att göra-listan kunde inte återställas i Firebase.", error);
         return false;
     }
+}
+
+function applyTodoOnlyWorldSnapshot(event) {
+    if (!event.oldValue || !event.newValue) return false;
+    const previous = JSON.parse(event.oldValue);
+    const incoming = JSON.parse(event.newValue);
+    if (!previous || !incoming || typeof previous !== "object" || typeof incoming !== "object" ||
+        Array.isArray(previous) || Array.isArray(incoming)) return false;
+    const equal = (left, right) => {
+        if (left === right) return true;
+        if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
+        if (Array.isArray(left) !== Array.isArray(right)) return false;
+        const keys = Object.keys(left);
+        return keys.length === Object.keys(right).length &&
+            keys.every(key => Object.prototype.hasOwnProperty.call(right, key) && equal(left[key], right[key]));
+    };
+    const { todo: previousTodo, ...previousWorld } = previous;
+    const { todo: incomingTodo, ...incomingWorld } = incoming;
+    if (!equal(previousWorld, incomingWorld)) return false;
+    renderTodo(incomingTodo);
+    return true;
 }
 
 function orderedTodoRows(todo) {
@@ -13986,49 +14053,219 @@ async function reconnectWithCode(event) {
     }
 }
 
-async function refreshAdminReconnectCodes() {
-    adminCodeListEl.replaceChildren();
-    const snapshot = await window.firebase.database().ref("reconnectCodes").once("value");
-    const records = snapshot.val() || {};
-    const activeCodes = Object.entries(records).filter(([code, record]) => {
-        if (!record || !LOBBY_CONFIGS[record.lobbyId]) return false;
-        const player = readLobbyRoom(record.lobbyId).players[String(record.seat)];
-        return player && player.reconnectId === record.reconnectId;
-    }).sort(([, left], [, right]) =>
-        left.lobbyId.localeCompare(right.lobbyId) || Number(left.seat) - Number(right.seat)
-    );
+let adminDashboardGeneration = 0;
+let adminDashboardListeners = [];
+let adminDashboardRooms = {};
+let adminDashboardCodes = null;
+let adminDashboardErrors = {};
+let adminDashboardConnected = false;
+let adminDashboardActive = false;
 
-    if (!activeCodes.length) {
-        const empty = document.createElement("p");
-        empty.textContent = "Inga aktiva återanslutningskoder.";
-        adminCodeListEl.appendChild(empty);
-        return;
-    }
-
-    activeCodes.forEach(([code, record]) => {
-        const row = document.createElement("div");
-        row.className = "admin-code-row";
-        const description = document.createElement("span");
-        description.textContent = `${record.playerName || "Spelare"} — ${LOBBY_CONFIGS[record.lobbyId].name}, plats ${record.seat}`;
-        const value = document.createElement("code");
-        value.textContent = formatReconnectCode(code);
-        const copyButton = document.createElement("button");
-        copyButton.type = "button";
-        copyButton.className = "lobby-secondary";
-        copyButton.textContent = "Kopiera";
-        copyButton.addEventListener("click", async () => {
-            try {
-                await navigator.clipboard.writeText(formatReconnectCode(code));
-                lobbyNoticeEl.textContent = "Koden kopierades.";
-            } catch (error) {
-                console.error("Koden kunde inte kopieras.", error);
-                lobbyNoticeEl.textContent = "Kopiering misslyckades. Markera och kopiera koden manuellt.";
-            }
-        });
-        row.append(description, value, copyButton);
-        adminCodeListEl.appendChild(row);
-    });
+function adminSeatMap(raw) {
+    const entries = Array.isArray(raw)
+        ? raw.map((player, index) => [String(index + (raw[0] ? 1 : 0)), player])
+        : raw && typeof raw === "object" ? Object.entries(raw) : [];
+    return Object.fromEntries(entries.filter(([seat, player]) =>
+        Number.isInteger(Number(seat)) && Number(seat) >= 1 && Number(seat) <= LOBBY_MAX_PLAYER_COUNT &&
+        player && typeof player === "object" && !Array.isArray(player)
+    ));
 }
+
+function adminItemList(raw) {
+    const values = Array.isArray(raw) ? raw
+        : raw && typeof raw === "object" && Object.keys(raw).every(key => /^\d+$/.test(key))
+            ? Object.values(raw) : [];
+    return values.filter(item => typeof item === "string");
+}
+
+function adminLobbyOverview(lobbyId, room, records) {
+    const normalizeItem = item => item === "observatoryKey" ? "seanceKey" : item;
+    const picked = adminItemList(room?.world?.pickedUpItems).map(normalizeItem);
+    // World pickups are appended by the existing merge/room transactions, never by inventory transfers.
+    // Only arrays have a reliable acquisition order; old unordered data must not invent a last key.
+    const lastKey = Array.isArray(room?.world?.pickedUpItems)
+        ? picked.filter(item => KEY_ITEMS.has(item)).at(-1) : null;
+    const seats = adminSeatMap(room?.lobby?.players);
+    const states = adminSeatMap(room?.players);
+    const roles = room?.world?.lounge?.roles;
+    return {
+        portraits: new Set(picked.filter(item => PORTRAIT_ITEMS.has(item))).size,
+        lastKey: lastKey ? itemNames[lastKey] || lastKey : "—",
+        ouija: typeof room?.events?.ouijaMessage?.text === "string"
+            ? room.events.ouijaMessage.text || "—" : "—",
+        players: Object.entries(seats).sort(([a], [b]) => Number(a) - Number(b)).map(([seat, occupant]) => {
+            const state = states[seat] || {};
+            const assignedRole = Object.keys(LOUNGE_ROLE_CONFIG)
+                .find(role => Number(roles?.[role]) === Number(seat));
+            const role = assignedRole || (
+                LOUNGE_ROLE_CONFIG[state.role] && (!roles?.[state.role] || Number(roles[state.role]) === Number(seat))
+                    ? state.role : null
+            );
+            const matchingCodes = Object.entries(records || {}).filter(([code, record]) =>
+                /^[A-Z0-9]{12}$/.test(code) && record?.lobbyId === lobbyId &&
+                Number(record.seat) === Number(seat) &&
+                typeof occupant.reconnectId === "string" && occupant.reconnectId.length > 0 &&
+                record.reconnectId === occupant.reconnectId
+            ).sort(([, a], [, b]) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+            return {
+                seat, name: occupant.name || state.name || `Spelare ${seat}`,
+                code: matchingCodes[0]?.[0] || null,
+                role: role ? LOUNGE_ROLE_CONFIG[role].title : "—",
+                inventory: adminItemList(state.inventory).map(normalizeItem).map(item => itemNames[item] || item)
+            };
+        })
+    };
+}
+
+function renderAdminDashboard() {
+    if (!adminDashboardActive) return;
+    const restoreListFocus = adminCodeListEl.contains(document.activeElement);
+    const list = [];
+    const textNode = (tag, text) => {
+        const node = document.createElement(tag);
+        node.textContent = text;
+        return node;
+    };
+    Object.entries(LOBBY_CONFIGS).forEach(([id, lobby]) => {
+        const column = document.createElement("section");
+        column.className = "admin-lobby-column";
+        column.appendChild(textNode("h3", lobby.name));
+        if (adminDashboardErrors[id]) {
+            column.appendChild(textNode("p", "Lobbydata kunde inte läsas."));
+        } else if (!(id in adminDashboardRooms)) {
+            column.appendChild(textNode("p", "Läser lobbydata…"));
+        } else {
+            const overview = adminLobbyOverview(id, adminDashboardRooms[id], adminDashboardCodes);
+            column.append(
+                textNode("p", `Samlade porträtt: ${overview.portraits}/3`),
+                textNode("p", `Senast nyckel hittad: ${overview.lastKey}`),
+                textNode("p", `Senaste Ouija-meddelande: ${overview.ouija}`)
+            );
+            if (!overview.players.length) column.appendChild(textNode("p", "Inga spelare i lobbyn."));
+            overview.players.forEach(player => {
+                const row = document.createElement("article");
+                row.className = "admin-player";
+                row.append(
+                    textNode("h4", `${player.name} — plats ${player.seat}`),
+                    textNode("p", `Roll: ${player.role}`),
+                    textNode("p", `Inventory: ${player.inventory.join(", ") || "Tomt"}`),
+                    textNode("p", adminDashboardErrors.reconnectCodes
+                        ? "Återanslutningskod: kunde inte läsas"
+                        : `Återanslutningskod: ${player.code ? formatReconnectCode(player.code) : "—"}`)
+                );
+                if (player.code) {
+                    const copy = textNode("button", "Kopiera kod");
+                    copy.type = "button";
+                    copy.className = "lobby-secondary";
+                    copy.addEventListener("click", async () => {
+                        try {
+                            await navigator.clipboard.writeText(formatReconnectCode(player.code));
+                        } catch (error) {
+                            console.error("Koden kunde inte kopieras.", error);
+                            document.getElementById("adminDashboardStatus").textContent =
+                                "Kopiering misslyckades. Markera och kopiera koden manuellt.";
+                        }
+                    });
+                    row.appendChild(copy);
+                }
+                column.appendChild(row);
+            });
+        }
+        list.push(column);
+    });
+    adminCodeListEl.replaceChildren(...list);
+    if (restoreListFocus) adminCodeListEl.focus();
+    const errors = Object.values(adminDashboardErrors);
+    document.getElementById("adminDashboardStatus").textContent = errors.length
+        ? errors.join("\n")
+        : !adminDashboardConnected
+            ? "Ingen liveanslutning. Visade uppgifter kan vara inaktuella."
+            : Object.keys(adminDashboardRooms).length < Object.keys(LOBBY_CONFIGS).length || adminDashboardCodes === null
+                ? "Läser lobbydata och återanslutningskoder…"
+                : "Liveansluten — endast läsning.";
+}
+
+function detachAdminDashboardListeners() {
+    adminDashboardGeneration += 1;
+    adminDashboardListeners.forEach(({ ref, callback }) => ref.off("value", callback));
+    adminDashboardListeners = [];
+    adminDashboardRooms = {};
+    adminDashboardCodes = null;
+    adminDashboardErrors = {};
+    adminCodeListEl.replaceChildren();
+}
+
+function closeAdminDashboard() {
+    if (!adminDashboardActive) return;
+    adminDashboardActive = false;
+    detachAdminDashboardListeners();
+    adminCodeResultsEl.hidden = true;
+    lobbyScreenEl.inert = false;
+    lobbyTitleFormEl.hidden = false;
+    adminLoginFormEl.hidden = true;
+    lobbyNoticeEl.textContent = environment ? "" : "Adminöversikten stängdes. Administratörsinloggning krävs.";
+    lobbyPasswordInputEl.focus();
+}
+
+function refreshAdminReconnectCodes() {
+    if (!environment || !window.firebase.auth().currentUser) {
+        closeAdminDashboard();
+        throw new Error("Administratörsinloggning krävs.");
+    }
+    detachAdminDashboardListeners();
+    adminDashboardActive = true;
+    adminDashboardConnected = false;
+    adminCodeResultsEl.hidden = false;
+    lobbyScreenEl.inert = true;
+    const generation = adminDashboardGeneration;
+    const database = window.firebase.database();
+    const listen = (key, path, consume) => {
+        const ref = database.ref(path);
+        const callback = snapshot => {
+            if (!adminDashboardActive || generation !== adminDashboardGeneration || !environment) return;
+            delete adminDashboardErrors[key];
+            consume(snapshot.val());
+            renderAdminDashboard();
+        };
+        const failed = error => {
+            if (!adminDashboardActive || generation !== adminDashboardGeneration) return;
+            console.error(`Adminöversikten kunde inte läsa ${path}.`, error);
+            if (key === "reconnectCodes") adminDashboardCodes = null;
+            else delete adminDashboardRooms[key];
+            adminDashboardErrors[key] = `Kunde inte läsa ${LOBBY_CONFIGS[key]?.name || key}. Kontrollera anslutningen, admin-kontot och Firebase-reglerna.`;
+            renderAdminDashboard();
+        };
+        adminDashboardListeners.push({ ref, callback });
+        try { ref.on("value", callback, failed); } catch (error) { failed(error); }
+    };
+    renderAdminDashboard();
+    Object.keys(LOBBY_CONFIGS).forEach(id => listen(id, `rooms/${id}`, value => {
+        adminDashboardRooms[id] = value;
+    }));
+    listen("reconnectCodes", "reconnectCodes", value => { adminDashboardCodes = value || {}; });
+    listen("anslutning", ".info/connected", value => { adminDashboardConnected = value === true; });
+}
+
+document.getElementById("adminDashboardCloseButton").addEventListener("click", closeAdminDashboard);
+document.getElementById("adminDashboardPanel").addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeAdminDashboard();
+    } else if (event.key === "Tab") {
+        const controls = [...document.getElementById("adminDashboardPanel").querySelectorAll("button, [tabindex='0']")];
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (event.shiftKey && (document.activeElement === first ||
+            document.activeElement === document.getElementById("adminDashboardPanel"))) {
+            event.preventDefault();
+            last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first?.focus();
+        }
+    }
+});
 
 async function loginAdmin(event) {
     event.preventDefault();
@@ -14040,21 +14277,24 @@ async function loginAdmin(event) {
             document.getElementById("adminPasswordInput").value
         );
         updateAdminDebugAccess(auth.currentUser);
-        await refreshAdminReconnectCodes();
+        if (!environment) throw new Error("Kontot är inte godkänt för adminåtkomst.");
+        refreshAdminReconnectCodes();
         lobbyNoticeEl.textContent = "";
         lobbyTitleFormEl.hidden = true;
         reconnectCodeFormEl.hidden = true;
         adminLoginFormEl.hidden = true;
-        adminCodeResultsEl.hidden = false;
+        document.getElementById("adminPasswordInput").value = "";
+        document.getElementById("adminDashboardCloseButton").focus();
     } catch (error) {
-        console.error("Administratörsinloggning eller kodhämtning misslyckades.", error);
+        console.error("Administratörsinloggning eller lobbyöversikt misslyckades.", error);
         lobbyNoticeEl.textContent = error.code === "PERMISSION_DENIED"
             ? "Admininloggningen lyckades inte få åtkomst. Kontrollera admin-e-posten i Firebase-reglerna."
-            : "Kunde inte logga in eller hämta koder. Kontrollera admin-kontot och Firebase-reglerna.";
+            : "Kunde inte logga in eller öppna lobbyöversikten. Kontrollera admin-kontot och Firebase-reglerna.";
     }
 }
 
 async function logoutAdmin() {
+    closeAdminDashboard();
     try {
         await window.firebase.auth().signOut();
         await window.firebase.auth().signInAnonymously();
@@ -14662,8 +14902,8 @@ document.getElementById("adminRefreshCodesButton").addEventListener("click", asy
         await refreshAdminReconnectCodes();
         lobbyNoticeEl.textContent = "";
     } catch (error) {
-        console.error("Återanslutningskoder kunde inte uppdateras.", error);
-        lobbyNoticeEl.textContent = "Kunde inte hämta koder. Kontrollera admin-inloggningen och Firebase-reglerna.";
+        console.error("Lobbyöversikten kunde inte uppdateras.", error);
+        lobbyNoticeEl.textContent = "Kunde inte öppna lobbyöversikten. Kontrollera admin-inloggningen och Firebase-reglerna.";
     }
 });
 document.getElementById("adminSignOutButton").addEventListener("click", logoutAdmin);
@@ -14672,7 +14912,7 @@ document.getElementById("continueAsAdminButton").addEventListener("click", () =>
         lobbyNoticeEl.textContent = "Debugläge kräver inloggning med det godkända administratörskontot.";
         return;
     }
-    adminCodeResultsEl.hidden = true;
+    closeAdminDashboard();
     lobbyTitleFormEl.hidden = false;
     lobbyNoticeEl.textContent = "Adminläge aktivt. Starta en lobby och tryck Ctrl+D under spelet för checkpoints och presets.";
     lobbyPasswordInputEl.focus();
@@ -15601,6 +15841,7 @@ sharedStateStore.subscribe(event => {
     }
 
     if (event.key === WORLD_STATE_KEY) {
+        if (applyTodoOnlyWorldSnapshot(event)) return;
         loadWorldState();
         updateInventory({ persist: false });
         syncMessengerRelay();
