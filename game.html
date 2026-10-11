@@ -4380,6 +4380,7 @@ const worldState = {
         spiritSharedFrameImage: null,
         spiritDecisionCountdown: null,
         spiritVotes: {},
+        spiritRetry: null,
         spiritVoteResolvedToken: null,
         spiritUnlockedChoices: [],
         spiritFlashlightEquipped: false,
@@ -4540,7 +4541,8 @@ const TRANSACTION_ONLY_LOUNGE_FIELDS = new Set([
     "builderCoughCount",
     "builderCoughNextAt",
     "spiritVotes",
-    "spiritVoteResolvedToken"
+    "spiritVoteResolvedToken",
+    "spiritRetry"
 ]);
 
 const TRANSACTION_ONLY_KITCHEN_FIELDS = new Set([
@@ -4587,7 +4589,7 @@ function mergeFirebaseState(current, incoming, previous, path = "", options = {}
                     if (incoming[field] == null) delete merged[field];
                     else merged[field] = incoming[field];
                 }
-                if (allowSpiritVoteState && ["spiritVotes", "spiritVoteResolvedToken"].includes(field)) {
+                if (allowSpiritVoteState && ["spiritVotes", "spiritVoteResolvedToken", "spiritRetry"].includes(field)) {
                     if (incoming[field] == null) delete merged[field];
                     else merged[field] = incoming[field];
                 }
@@ -5267,6 +5269,7 @@ const SPIRIT_DIRECT_TARGETS = {
 };
 
 function spiritVoteTarget(action, lounge) {
+    if (action.type === "retry") return lounge.spiritRetry?.restartScene || null;
     if (action.type === "target") return action.target;
     if (action.type !== "special") return null;
     if (action.special === "spiritGoWoods2Continue") {
@@ -5299,7 +5302,7 @@ async function submitSpiritActionVote(action, label, message = `vill gå ${label
     }
     spiritVoteSubmissionPending = true;
     const lobbyId = activeLobbyId;
-    const scene = currentScene;
+    const scene = action.type === "retry" ? loungeState.spiritRetry?.scene : currentScene;
     const vote = { action, label, scene, timestamp: getFirebaseServerTime(), id: crypto.randomUUID() };
     try {
         const result = await window.firebase.database().ref(`rooms/${lobbyId}`)
@@ -5342,7 +5345,8 @@ async function tryResolveSpiritActionVote() {
     const messengerVote = loungeState.spiritVotes?.[loungeState.messengerDeadId];
     if (!builderVote || !messengerVote || builderVote.action.key !== messengerVote.action.key) return;
 
-    if (builderVote.scene !== messengerVote.scene || builderVote.scene !== currentScene) return;
+    if (builderVote.scene !== messengerVote.scene ||
+        builderVote.scene !== (builderVote.action.type === "retry" ? loungeState.spiritRetry?.scene : currentScene)) return;
     const token = `${builderVote.action.key}:${builderVote.id || builderVote.timestamp}:${messengerVote.id || messengerVote.timestamp}`;
     if (loungeState.spiritVoteResolvedToken === token) return;
     const executorId = builderVote.action.type === "drop"
@@ -5363,8 +5367,17 @@ async function tryResolveSpiritActionVote() {
                     builder.action.key !== messenger.action.key ||
                     `${builder.action.key}:${builder.id || builder.timestamp}:${messenger.id || messenger.timestamp}` !== token ||
                     lounge.spiritVoteResolvedToken === token) return;
+                if (builder.action.type === "retry" && builder.action.retryId !== lounge.spiritRetry?.id) return;
                 const target = spiritVoteTarget(builder.action, lounge);
                 const nextLounge = { ...lounge, spiritVotes: {}, spiritVoteResolvedToken: token };
+                if (builder.action.type === "retry") {
+                    nextLounge.spiritRetry = null;
+                    if (lounge.spiritRetry.swamp) nextLounge.spiritCrucifixReady = false;
+                    else Object.assign(nextLounge, {
+                        spiritUnlockedChoices: [], spiritAxeReady: false,
+                        spiritRopeReady: false, spiritCrucifixReady: false
+                    });
+                }
                 const next = { ...room, world: { ...room.world, lounge: nextLounge } };
                 if (target) {
                     const ids = [String(lounge.builderDeadId), String(lounge.messengerDeadId)];
@@ -5383,6 +5396,10 @@ async function tryResolveSpiritActionVote() {
                     if (builder.action.special === "spiritReturnToCabin") {
                         nextLounge.sharedFieldRevisions.spiritReturning = revision;
                     }
+                    if (builder.action.type === "retry") {
+                        ["spiritUnlockedChoices", "spiritAxeReady", "spiritRopeReady", "spiritCrucifixReady"]
+                            .forEach(field => { nextLounge.sharedFieldRevisions[field] = revision; });
+                    }
                 }
                 return next;
             });
@@ -5396,7 +5413,13 @@ async function tryResolveSpiritActionVote() {
                 applyCommittedLoungeFields(lounge, ["spiritReturning"]);
             }
         }
-        if (builderVote.action.type === "special") {
+        if (builderVote.action.type === "retry") {
+            loungeState.spiritRetry = null;
+            applyCommittedLoungeFields(lounge, ["spiritSharedScene", "spiritSharedFrameImage",
+                "spiritUnlockedChoices", "spiritAxeReady", "spiritRopeReady", "spiritCrucifixReady"]);
+            finishSpiritRetryLocally();
+            goToScene(lounge.spiritSharedScene, { persist: false });
+        } else if (builderVote.action.type === "special") {
             handleSpecialClick(builderVote.action.special, {}, true);
         } else if (builderVote.action.type === "drop") {
             handleSpecialDrop(builderVote.action.special,
@@ -5424,6 +5447,7 @@ function reviveBuilder() {
         spiritSharedFrameImage: null,
         spiritDecisionCountdown: null,
         spiritVotes: {},
+        spiritRetry: null,
         spiritVoteResolvedToken: null
     });
     markSharedLoungeStateChanged();
@@ -5761,7 +5785,9 @@ function applyCommittedLoungeFields(lounge, fields) {
     fields.forEach(field => {
         const revision = Number(lounge.sharedFieldRevisions?.[field]) || 0;
         if (revision < (Number(loungeState.sharedFieldRevisions[field]) || 0)) return;
-        loungeState[field] = cloneGameState(lounge[field] ?? null);
+        const emptyValue = ["bodyInventory", "dumpspotItems"].includes(field)
+            ? [] : field === "placedItems" ? {} : null;
+        loungeState[field] = cloneGameState(lounge[field] ?? emptyValue);
         if (revision) loungeState.sharedFieldRevisions[field] = revision;
         if (sharedLoungeBaseline && SHARED_LOUNGE_STATE_FIELDS.includes(field)) {
             sharedLoungeBaseline[field] = cloneGameState(loungeState[field]);
@@ -5800,9 +5826,10 @@ async function transferBuilderBody(action, item = null) {
             .transaction(room => {
                 const lounge = room?.world?.lounge;
                 const player = room?.players?.[playerId];
-                if (!lounge || !Array.isArray(player?.inventory)) return;
+                if (!lounge || !player ||
+                    (player.inventory != null && !Array.isArray(player.inventory))) return;
                 const bodyInventory = [...(lounge.bodyInventory || [])];
-                let playerInventory = [...player.inventory];
+                let playerInventory = [...(player.inventory ?? [])];
                 let updates;
                 if (action === "death") {
                     if (Number(lounge.roles?.builder) !== Number(playerId) ||
@@ -5816,7 +5843,7 @@ async function transferBuilderBody(action, item = null) {
                         builderDeadId: Number(playerId),
                         messengerDead: Boolean(messengerId), messengerDeadId: messengerId,
                         messengerRevived: false, spiritCoopActive: Boolean(messengerId),
-                        spiritSharedScene: null, spiritVotes: {}, spiritVoteResolvedToken: null,
+                        spiritSharedScene: null, spiritVotes: {}, spiritRetry: null, spiritVoteResolvedToken: null,
                         tvOn: false, playingRecord: null, closeEyesReadyAt: null
                     };
                     playerInventory = [];
@@ -5866,9 +5893,13 @@ async function transferBuilderBody(action, item = null) {
         }
         if (activeLobbyId !== lobbyId) return false;
         const room = result.snapshot.val();
+        const savedPlayer = room.players?.[playerId];
+        if (!savedPlayer || (savedPlayer.inventory != null && !Array.isArray(savedPlayer.inventory))) {
+            throw new Error("Kroppens överföring sparades men spelarens inventory-svar är ogiltigt.");
+        }
         applyCommittedLoungeFields(room.world.lounge, changedFields);
         inventory.clear();
-        room.players[playerId].inventory.forEach(value => inventory.add(value));
+        (savedPlayer.inventory ?? []).forEach(value => inventory.add(value));
         if (action === "keyring") pickedUpItems.add("seanceKey");
         updateInventory({ persist: false });
         return true;
@@ -6037,9 +6068,9 @@ async function putRecordOnPlayer(record, sourceData) {
         }
         sharedLoungeBaseline = captureSharedLoungeState();
         const savedInventory = committedRoom.players?.[playerId]?.inventory;
-        if (sourceData.source === "inventory" && Array.isArray(savedInventory)) {
+        if (sourceData.source === "inventory") {
             inventory.clear();
-            savedInventory.forEach(item => inventory.add(item));
+            (Array.isArray(savedInventory) ? savedInventory : []).forEach(item => inventory.add(item));
         }
         updateInventory();
         refreshScene();
@@ -6807,6 +6838,7 @@ const homeEndingOverlayEl = document.getElementById("homeEndingOverlay");
 const homeEndingVideoEl = document.getElementById("homeEndingVideo");
 const homeEndingStatusEl = document.getElementById("homeEndingStatus");
 let homeEndingSequenceActive = false;
+let homeEndingExitInProgress = false;
 let homeEndingVideoLoadStarted = false;
 let homeEndingVideoReady = false;
 let homeEndingVideoFailed = false;
@@ -7949,6 +7981,10 @@ function showMessengerRecipientPicker(item) {
     };
 }
 
+function messengerItemLabel(item) {
+    return parseAlbumSetId(item) ? "Albumset" : itemNames[item] || item;
+}
+
 function sendMessengerItem(item, recipientId) {
     const messengerId = messengerPlayerId();
     const recipient = Number(recipientId);
@@ -7973,7 +8009,7 @@ function sendMessengerItem(item, recipientId) {
         !KEY_ITEMS.has(entry) && !PORTRAIT_ITEMS.has(entry)
     );
     if (receiverLooseItems.length >= receiverCapacity) {
-        showToast(`${TEST_TEAM.players[recipient].name} har fullt inventory. ${itemNames[item] || item} stannar hos dig.`);
+        showToast(`${TEST_TEAM.players[recipient].name} har fullt inventory. ${messengerItemLabel(item)} stannar hos dig.`);
         return false;
     }
 
@@ -7993,7 +8029,7 @@ function sendMessengerItem(item, recipientId) {
         toId: recipient,
         timestamp: Date.now()
     }));
-    showToast(`Du skickade ${itemNames[item] || item} till ${TEST_TEAM.players[recipient].name}.`);
+    showToast(`Du skickade ${messengerItemLabel(item)} till ${TEST_TEAM.players[recipient].name}.`);
     return true;
 }
 
@@ -8500,6 +8536,7 @@ function handleHomeEndingVideoEnded() {
 
 function finishHomeEndingSequence() {
     if (!homeEndingSequenceActive) return;
+    homeEndingExitInProgress = true;
     homeEndingVideoEl.pause();
     clearTimeout(homeEndingStartTimer);
     homeEndingStartTimer = null;
@@ -8514,12 +8551,13 @@ function finishHomeEndingSequence() {
     homeEndingVideoStarted = false;
     homeEndingStartAt = null;
 
-    resetWorldState();
     gameStarted = false;
-    leaveLobby();
+    leaveLobby({ completedEnding: true });
+    resetWorldState({ persist: false });
     lobbyScreenEl.hidden = false;
     document.body.classList.add("in-lobby");
     showLobbyView("title");
+    homeEndingExitInProgress = false;
 }
 
 function blockEndingSequenceInput(event) {
@@ -9450,7 +9488,74 @@ async function playSpiritSequence(frames, options = {}) {
     }
 }
 
-async function showSpiritFailure(restartScene, followerStart = null, heldFollowerStage = null) {
+let spiritRetryShownId = null;
+
+function finishSpiritRetryLocally() {
+    spiritRetryShownId = null;
+    spiritRemoteFrameToken += 1;
+    cancelSpiritSequence();
+    stopSpiritRampUpSound();
+    spiritSequenceInProgress = false;
+    spiritRampUpStartedForSequence = false;
+    spiritRampUpPlaybackClaimed = false;
+    document.getElementById("spiritFailureOverlay").classList.remove("visible");
+    messageEl.classList.remove("visible");
+}
+
+async function beginSpiritRetry(restartScene, animate = false, followerStart = null, swamp = false) {
+    const lobbyId = activeLobbyId;
+    try {
+        const result = await window.firebase.database().ref(`rooms/${lobbyId}`)
+            .transaction(room => {
+                if (!roomHasSpiritCoop(room)) return;
+                const lounge = room.world.lounge;
+                if (lounge.spiritRetry) return room;
+                return { ...room, world: { ...room.world, lounge: {
+                    ...lounge, spiritVotes: {}, spiritRetry: {
+                        id: crypto.randomUUID(), scene: lounge.spiritSharedScene || currentScene,
+                        restartScene, animate, followerStart, swamp
+                    }
+                } } };
+            });
+        if (!result.committed) {
+            showToast("Det gemensamma försöket kunde inte pausas eftersom samarbetsläget har ändrats.");
+            return;
+        }
+        if (activeLobbyId === lobbyId) {
+            loungeState.spiritRetry = result.snapshot.val().world.lounge.spiritRetry;
+            syncSpiritRetry();
+        }
+    } catch (error) {
+        showFirebaseError("Det gemensamma försöket kunde inte pausas.", error);
+    }
+}
+
+function syncSpiritRetry() {
+    const retry = loungeState.spiritRetry;
+    if (!isSpiritCoopMember()) {
+        if (spiritRetryShownId) finishSpiritRetryLocally();
+        return false;
+    }
+    if (!retry) {
+        if (spiritRetryShownId) finishSpiritRetryLocally();
+        return false;
+    }
+    if (spiritRetryShownId !== retry.id) {
+        spiritRetryShownId = retry.id;
+        spiritRemoteFrameToken += 1;
+        document.getElementById("spiritFailureOverlay").classList.add("visible");
+        if (retry.animate) void showSpiritFailure(retry.restartScene, retry.followerStart, null, true);
+        else showSpiritFailureMessage(retry.restartScene, true);
+    }
+    return true;
+}
+
+async function showSpiritFailure(restartScene, followerStart = null, heldFollowerStage = null, sharedRetry = false) {
+    if (isSpiritCoopMember() && !sharedRetry) {
+        heldFollowerStage?.remove();
+        await beginSpiritRetry(restartScene, true, followerStart);
+        return;
+    }
     cancelSpiritSequence({ preserveRampUp: true, preserveInProgress: true });
 
     const token = spiritSequenceToken;
@@ -9492,10 +9597,14 @@ async function showSpiritFailure(restartScene, followerStart = null, heldFollowe
     }
     attack.remove();
 
-    showSpiritFailureMessage(restartScene);
+    showSpiritFailureMessage(restartScene, sharedRetry);
 }
 
-function showSpiritFailureMessage(restartScene) {
+function showSpiritFailureMessage(restartScene, sharedRetry = false) {
+    if (isSpiritCoopMember() && !sharedRetry) {
+        void beginSpiritRetry(restartScene);
+        return;
+    }
     cancelSpiritSequence({ preserveInProgress: true });
     clearTimeout(spiritRampUpTimer);
     spiritRampUpTimer = null;
@@ -9508,6 +9617,19 @@ function showSpiritFailureMessage(restartScene) {
         "Woops",
         "Fel val",
         () => {
+            if (isSpiritCoopMember()) {
+                const retry = loungeState.spiritRetry;
+                if (!retry) return;
+                void submitSpiritActionVote({
+                    key: `retry:${retry.id}`, type: "retry", retryId: retry.id
+                }, "Försök igen", "är redo att försöka igen").then(saved => {
+                    if (!saved && loungeState.spiritRetry?.id === retry.id) {
+                        showSpiritFailureMessage(restartScene, true);
+                    }
+                });
+                showToast("Väntar på att båda andarna väljer Försök igen.");
+                return;
+            }
             stopSpiritRampUpSound();
             spiritSequenceInProgress = false;
             spiritRampUpStartedForSequence = false;
@@ -9640,6 +9762,10 @@ async function startSpiritSwamp19Chase({ persist = true } = {}) {
 }
 
 function showSpiritSwamp19FailureMessage() {
+    if (isSpiritCoopMember()) {
+        void beginSpiritRetry("spiritSwamp19", false, null, true);
+        return;
+    }
     cancelSpiritSequence();
     const overlay = document.getElementById("spiritFailureOverlay");
     overlay.classList.add("visible");
@@ -9849,7 +9975,8 @@ function handleSpiritOuijaMessage(text, sceneId = currentScene) {
     if (correct) clearSpiritDecisionCountdown();
 
     if (sceneId === "spiritTunnel" && term === "ficklampa") {
-        if (!loungeState.spiritFlashlightEquipped && !inventory.has("spiritFlashlight")) {
+        if (Number(playerState.id) === Number(loungeState.builderDeadId) &&
+            !loungeState.spiritFlashlightEquipped && !inventory.has("spiritFlashlight")) {
             tryAddInventoryItem("spiritFlashlight", { force: true });
             updateInventory();
         }
@@ -11084,6 +11211,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
         loungeState.spiritCoopActive = false;
         loungeState.spiritSharedScene = null;
         loungeState.spiritVotes = {};
+        loungeState.spiritRetry = null;
         loungeState.spiritVoteResolvedToken = null;
         markSharedLoungeStateChanged();
         saveWorldState({ allowSpiritVoteState: true });
@@ -13590,7 +13718,7 @@ function initializeLobbyIntroVideo() {
 initializeLobbyIntroVideo();
 
 function startLobbyIntro(startedAt) {
-    if (lobbyIntroStarted || gameStarted) return;
+    if (lobbyIntroStarted || gameStarted || homeEndingExitInProgress) return;
     lobbyIntroStarted = true;
     preloadStartupMedia().catch(error => {
         console.error("Startmedia kunde inte förladdas.", error);
@@ -13777,13 +13905,28 @@ function saveDebugPlayerState(seat, updates) {
     return nextPlayer;
 }
 
-function leaveLobby() {
+function leaveLobby({ completedEnding = false } = {}) {
     sessionStorage.removeItem("wh_activeLobbyId");
     if (activeLobbyId && lobbySeatId && currentLobbyRoom) {
         const player = currentLobbyRoom.players[String(lobbySeatId)];
         if (player?.sessionId === lobbySessionId) {
             delete currentLobbyRoom.players[String(lobbySeatId)];
-            saveLobbyRoom();
+            if (completedEnding) {
+                const seatId = String(lobbySeatId);
+                const sessionId = lobbySessionId;
+                void window.firebase.database().ref(`rooms/${activeLobbyId}`).transaction(room => {
+                    if (!room?.lobby) return;
+                    const players = { ...(room.lobby.players || {}) };
+                    if (players[seatId]?.sessionId !== sessionId) return;
+                    delete players[seatId];
+                    const lobby = { ...room.lobby, players };
+                    if (Object.keys(players).length) return { ...room, lobby };
+                    return { ...room, lobby: { ...lobby, startedAt: null, cinematicStartedAt: null },
+                        world: null, players: null, events: null, spiritVision: null };
+                }).then(result => {
+                    if (!result.committed) showFirebaseError("Din plats kunde inte lämnas efter avslutningen.");
+                }).catch(error => showFirebaseError("Lobbyn kunde inte avslutas.", error));
+            } else saveLobbyRoom();
         }
     }
     clearInterval(lobbyIntroTimer);
@@ -14250,6 +14393,7 @@ function setLoungeSolvedDebugState() {
     loungeState.spiritSharedFrameImage = null;
     loungeState.spiritDecisionCountdown = null;
     loungeState.spiritVotes = {};
+    loungeState.spiritRetry = null;
     loungeState.spiritVoteResolvedToken = null;
 
     void updateLoungeRecordState({
@@ -14334,6 +14478,7 @@ function setSpiritRealmDebugState(startScene = "loungeSpiritArrival") {
         spiritSharedFrameImage: null,
         spiritDecisionCountdown: null,
         spiritVotes: {},
+        spiritRetry: null,
         spiritVoteResolvedToken: null,
         bodyKeyringAvailable: true,
         bodyInventory: ["kitchenDoorKey"],
@@ -14380,7 +14525,8 @@ document.getElementById("debugSpiritCheckpointBtn").addEventListener("click", ()
     setSpiritRealmDebugState(document.getElementById("debugSpiritCheckpoint").value);
 });
 
-function resetWorldState() {
+function resetWorldState({ persist = true } = {}) {
+    finishSpiritRetryLocally();
     playerState.inventory.clear();
     worldState.pickedUpItems.clear();
     worldState.unlockedDoors.clear();
@@ -14419,6 +14565,9 @@ function resetWorldState() {
         currentChannel: 1,
         dumpspotItems: [],
         roles: { listener: null, watcher: null, builder: null, messenger: null },
+        recordOnPlayer: null,
+        playingRecord: null,
+        closeEyesReadyAt: null,
         remoteBatteries: [],
         remotePowered: false,
         listenerSeatedBy: null,
@@ -14440,6 +14589,7 @@ function resetWorldState() {
         spiritSharedFrameImage: null,
         spiritDecisionCountdown: null,
         spiritVotes: {},
+        spiritRetry: null,
         spiritVoteResolvedToken: null,
         spiritUnlockedChoices: [],
         spiritFlashlightEquipped: false,
@@ -14455,27 +14605,29 @@ function resetWorldState() {
         builderCoughNextAt: null,
         placedItems: { kitchenTable: [], loungeDesk: [] }
     });
-    void updateLoungeRecordState({
+    if (persist) void updateLoungeRecordState({
         recordOnPlayer: null,
         playingRecord: null,
         closeEyesReadyAt: null
     });
 
     playerState.role = null;
-    sharedStateStore.write(`${PLAYER_STATE_KEY_PREFIX}${playerState.id}`, JSON.stringify({
-        ...playerState,
-        inventory: []
-    }));
-    savePlayerState();
-    Object.keys(TEST_TEAM.players).forEach(id => {
-        const storageKey = `${PLAYER_STATE_KEY_PREFIX}${id}`;
-        const savedPlayer = JSON.parse(sharedStateStore.read(storageKey) || "{}");
-        savedPlayer.role = null;
-        savedPlayer.inventory = [];
-        savedPlayer.potionDrunk = false;
-        savedPlayer.scene = startScene;
-        sharedStateStore.write(storageKey, JSON.stringify(savedPlayer));
-    });
+    if (persist) {
+        sharedStateStore.write(`${PLAYER_STATE_KEY_PREFIX}${playerState.id}`, JSON.stringify({
+            ...playerState,
+            inventory: []
+        }));
+        savePlayerState();
+        Object.keys(TEST_TEAM.players).forEach(id => {
+            const storageKey = `${PLAYER_STATE_KEY_PREFIX}${id}`;
+            const savedPlayer = JSON.parse(sharedStateStore.read(storageKey) || "{}");
+            savedPlayer.role = null;
+            savedPlayer.inventory = [];
+            savedPlayer.potionDrunk = false;
+            savedPlayer.scene = startScene;
+            sharedStateStore.write(storageKey, JSON.stringify(savedPlayer));
+        });
+    }
 
     resetRavenPuzzle();
     clearBuilderShockSequence();
@@ -14491,8 +14643,8 @@ function resetWorldState() {
     messageEl.classList.remove("visible");
 
     markSharedLoungeStateChanged();
-    saveWorldState({ allowKettleState: true, allowBuilderCoughState: true, allowSpiritVoteState: true });
-    if (activeLobbyId && currentLobbyRoom) {
+    if (persist) saveWorldState({ allowKettleState: true, allowBuilderCoughState: true, allowSpiritVoteState: true });
+    if (persist && activeLobbyId && currentLobbyRoom) {
         const resetLobbyRoom = readLobbyRoom(activeLobbyId);
         Object.values(resetLobbyRoom.players).forEach(player => {
             player.ready = false;
@@ -14504,10 +14656,10 @@ function resetWorldState() {
     }
     currentScene = startScene;
     playerState.scene = startScene;
-    savePlayerState();
-    updateInventory();
-    refreshScene();
-    showToast("Debug: world state reset.");
+    if (persist) savePlayerState();
+    updateInventory({ persist });
+    refreshScene({ persistWorld: persist });
+    if (persist) showToast("Debug: world state reset.");
 }
 
 debugResetWorldBtn.addEventListener("click", resetWorldState);
@@ -14750,7 +14902,7 @@ sharedStateStore.subscribe(event => {
         return;
     }
 
-    if (event.key === LOBBY_STATE_KEY && activeLobbyId) {
+    if (event.key === LOBBY_STATE_KEY && activeLobbyId && !homeEndingSequenceActive && !homeEndingExitInProgress) {
         try {
             const savedRoom = JSON.parse(event.newValue || "null");
             currentLobbyRoom = {
@@ -14805,6 +14957,7 @@ sharedStateStore.subscribe(event => {
 
     if (event.key === `${PLAYER_STATE_KEY_PREFIX}${playerState.id}` && event.newValue) {
         loadPlayerState();
+        if (syncSpiritRetry()) return;
         currentScene = scenes[playerState.scene] ? playerState.scene : startScene;
         updateInventory({ persist: false });
         refreshScene({ persistWorld: false });
@@ -14814,6 +14967,14 @@ sharedStateStore.subscribe(event => {
         loadWorldState();
         updateInventory({ persist: false });
         syncMessengerRelay();
+        const wasRetrying = Boolean(spiritRetryShownId);
+        if (syncSpiritRetry()) {
+            setTimeout(tryResolveSpiritActionVote, 250);
+            return;
+        }
+        if (wasRetrying && isSpiritCoopMember() && loungeState.spiritSharedScene) {
+            goToScene(loungeState.spiritSharedScene, { persist: false, transition: false });
+        }
         if (isSpiritCoopMember() && loungeState.spiritSharedFrameImage) {
             sceneEl.style.backgroundImage = `url("${loungeState.spiritSharedFrameImage}")`;
             sceneEl.querySelectorAll(".hotspot").forEach(el => el.remove());
@@ -14855,7 +15016,7 @@ sharedStateStore.subscribe(event => {
         if (transfer.toId === playerState.id) {
             loadPlayerState();
             updateInventory();
-            showToast(`${transfer.fromName} skickade ${itemNames[transfer.item] || transfer.item} till dig.`);
+            showToast(`${transfer.fromName} skickade ${messengerItemLabel(transfer.item)} till dig.`);
         }
     }
 
