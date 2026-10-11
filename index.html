@@ -316,7 +316,7 @@ body.ending-sequence-active #gameInfoHelp { display: none; }
     position: fixed;
     inset: 0;
     z-index: 2500;
-    background: rgba(0, 0, 0, .12);
+    background: transparent;
 }
 #gameInfoPanel {
     position: absolute;
@@ -330,12 +330,11 @@ body.ending-sequence-active #gameInfoHelp { display: none; }
     padding: calc(var(--info-width, 880px) * .10) calc(var(--info-width, 880px) * .10) calc(var(--info-width, 880px) * .07);
     display: flex;
     flex-direction: column;
-    background: #d6be91 url("assets/ui/WH_UI_Info.webp") center / 100% 100% no-repeat;
+    background: transparent url("assets/ui/WH_UI_Info.webp") center / 100% 100% no-repeat;
     color: #302014;
     font-family: "WH Info Cinzel", Georgia, serif;
     font-size: clamp(12px, 1.65vh, 18px);
     line-height: 1.5;
-    box-shadow: 0 8px 30px #0008;
 }
 #gameInfoPanel h2 {
     margin: 0 0 .65em;
@@ -369,13 +368,22 @@ body.ending-sequence-active #gameInfoHelp { display: none; }
 }
 #gameInfoArrow {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
     pointer-events: none;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
 }
-#gameInfoArrow line { stroke: #f2d295; stroke-width: 5; filter: drop-shadow(0 2px 2px #000); }
+#gameInfoCursorExamples {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 8px 0;
+}
+#gameInfoCursorExamples[hidden] { display: none; }
+#gameInfoCursorExamples span { display: flex; align-items: center; gap: 6px; }
+#gameInfoCursorExamples img { width: 32px; height: 32px; object-fit: contain; }
 
 #adminCodeResults {
     max-height: 150px;
@@ -3000,14 +3008,18 @@ body.raven-wordle #ravenPuzzleOverlay {
 <button id="inGameReconnectCode" type="button" hidden title="Klicka för att kopiera återanslutningskoden"></button>
 <button id="gameInfoHelp" type="button" hidden aria-label="Öppna spelhjälp" title="Spelhjälp" aria-haspopup="dialog">?</button>
 <div id="gameInfoOverlay" hidden>
-    <svg id="gameInfoArrow" aria-hidden="true" hidden>
-        <defs><marker id="gameInfoArrowhead" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto"><path d="M0,0 L4,2 L0,4 Z" fill="#f2d295"/></marker></defs>
-        <line id="gameInfoArrowLine" marker-end="url(#gameInfoArrowhead)"/>
-    </svg>
+    <img id="gameInfoArrow" alt="" aria-hidden="true" hidden>
     <section id="gameInfoPanel" role="dialog" aria-modal="true" aria-labelledby="gameInfoTitle" tabindex="-1">
         <button id="gameInfoClose" type="button" aria-label="Stäng spelhjälp" hidden>×</button>
         <h2 id="gameInfoTitle"></h2>
         <div id="gameInfoContent" aria-live="polite"></div>
+        <div id="gameInfoCursorExamples" hidden aria-label="Exempel på muspekare">
+            <span><img src="assets/ui/cursors/WH_UI_look.webp" alt="">Titta</span>
+            <span><img src="assets/ui/cursors/WH_UI_pick_up.webp" alt="">Plocka upp</span>
+            <span><img src="assets/ui/cursors/WH_UI_door.webp" alt="">Öppna dörr</span>
+            <span><img src="assets/ui/cursors/WH_UI_Hold.webp" alt="">Dra</span>
+            <span><img src="assets/ui/cursors/WH_UI_back.webp" alt="">Tillbaka</span>
+        </div>
         <nav id="gameInfoNavigation" aria-label="Informationssidor">
             <button id="gameInfoPrevious" type="button" disabled>Föregående</button>
             <span id="gameInfoCounter" aria-live="polite"></span>
@@ -13421,12 +13433,16 @@ function positionGameInfo() {
     const target = gameInfoPage === 1 ? inventoryRect : todoRect;
     if (!target.width || !target.height) return;
     const toRight = gameInfoPage === 1;
-    const x1 = toRight ? panel.right + 6 : panel.left - 6;
-    const x2 = toRight ? target.left + 8 : target.right - 8;
-    if (toRight ? x2 <= x1 + 15 : x2 >= x1 - 15) return;
+    const gap = toRight ? target.left - panel.right : panel.left - target.right;
+    if (gap < 28) return;
+    const size = Math.min(64, gap - 12);
+    const leftEdge = toRight ? panel.right + 6 : panel.left - size - 6;
     const y2 = Math.max(target.top + 12, Math.min(target.bottom - 12, panel.top + panel.height / 2));
-    const line = document.getElementById("gameInfoArrowLine");
-    Object.entries({ x1, y1: y2, x2, y2 }).forEach(([key, value]) => line.setAttribute(key, value));
+    arrow.src = `assets/ui/cursors/WH_UI_${toRight ? "right" : "left"}.webp`;
+    arrow.style.left = `${leftEdge}px`;
+    arrow.style.top = `${y2 - size / 2}px`;
+    arrow.style.width = `${size}px`;
+    arrow.style.height = `${size}px`;
     arrow.hidden = false;
 }
 
@@ -13440,6 +13456,7 @@ function renderGameInfo() {
         return paragraph;
     }));
     content.scrollTop = 0;
+    document.getElementById("gameInfoCursorExamples").hidden = gameInfoPage !== 0;
     document.getElementById("gameInfoCounter").textContent = `${gameInfoPage + 1}/4`;
     gameInfoPreviousEl.disabled = gameInfoPage === 0;
     const finalPage = gameInfoPage === GAME_INFO_PAGES.length - 1;
