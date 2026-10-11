@@ -9238,6 +9238,7 @@ function cancelSpiritSequence({
                 currentScene === "spiritSwamp19" &&
                 playerState.scene === "spiritSwamp19" &&
                 !loungeState.spiritBanished &&
+                !loungeState.spiritRetry &&
                 !document.getElementById("spiritFailureOverlay").classList.contains("visible") &&
                 spiritSwamp19ChaseToken === null
             ) {
@@ -9543,9 +9544,12 @@ function syncSpiritRetry() {
     if (spiritRetryShownId !== retry.id) {
         spiritRetryShownId = retry.id;
         spiritRemoteFrameToken += 1;
-        document.getElementById("spiritFailureOverlay").classList.add("visible");
-        if (retry.animate) void showSpiritFailure(retry.restartScene, retry.followerStart, null, true);
-        else showSpiritFailureMessage(retry.restartScene, true);
+        if (retry.animate) {
+            document.getElementById("spiritFailureOverlay").classList.remove("visible");
+            void showSpiritFailure(retry.restartScene, retry.followerStart, null, true);
+        } else {
+            showSpiritFailureMessage(retry.restartScene, true);
+        }
     }
     return true;
 }
@@ -12846,6 +12850,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
         if (
             id === "spiritSwamp19" &&
             !loungeState.spiritBanished &&
+            !loungeState.spiritRetry &&
             !document.getElementById("spiritFailureOverlay").classList.contains("visible") &&
             (spiritSwamp19ChaseToken === null ||
                 !sceneEl.querySelector(".spirit-swamp19-monster"))
