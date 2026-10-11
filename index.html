@@ -296,6 +296,13 @@ body.ending-sequence-active {
     font-display: swap;
 }
 
+@font-face {
+    font-family: "WH Todo Caveat";
+    src: url("assets/fonts/Caveat.ttf") format("truetype");
+    font-weight: 400 700;
+    font-display: swap;
+}
+
 #gameInfoHelp {
     position: fixed;
     top: 145px;
@@ -368,6 +375,7 @@ body.ending-sequence-active #gameInfoHelp { display: none; }
 }
 #gameInfoArrow {
     position: absolute;
+    z-index: 1;
     width: 64px;
     height: 64px;
     object-fit: contain;
@@ -1136,6 +1144,7 @@ body:not(.environment-enabled) #lobbyDebugControls {
     z-index: 8;
     background: url("assets/ui/WH_UI_ToDo.webp") center / 100% 100% no-repeat;
     color: #30261b;
+    font-family: "WH Todo Caveat", cursive;
     font-size: clamp(11px, 1.45vh, 18px);
 }
 #todoPanel[hidden],
@@ -2961,6 +2970,8 @@ body.raven-wordle #ravenPuzzleOverlay {
 <audio id="ravenCawAudio" src="assets/audio/Caw.mp3" preload="none"></audio>
 <audio id="ouijaTypeAudio" src="assets/audio/type.mp3" preload="none"></audio>
 <audio id="paperAudio" src="assets/audio/paper.mp3" preload="none"></audio>
+<audio id="todoWriteAudio" src="assets/audio/write.mp3" preload="none"></audio>
+<audio id="todoUnderlineAudio" src="assets/audio/underline.mp3" preload="none"></audio>
 <audio id="ouijaSendAudio" src="assets/audio/send.mp3" preload="none"></audio>
 <audio id="wallDemoAudio" src="assets/audio/wallDemo.mp3" preload="none"></audio>
 <audio id="sprayAudio" src="assets/audio/spray.mp3" preload="none"></audio>
@@ -4976,8 +4987,64 @@ function updateLocalSharedValue(key, value) {
     window.dispatchEvent(event);
 }
 
+const sharedNotificationBaselines = new Map();
+
+function playTodoChangeSound(completed) {
+    const audio = document.getElementById(completed ? "todoUnderlineAudio" : "todoWriteAudio").cloneNode();
+    audio.volume = fxVolume;
+    audio.muted = fxMuted;
+    audio.play().catch(() => {});
+}
+
+function notifySharedRoomChanges(roomId, room, liveSnapshot) {
+    const runId = String(room.lobby?.startedAt || "");
+    const previous = sharedNotificationBaselines.get(roomId);
+    const todo = room.world?.todo;
+    const validTodo = todo?.runId === runId ? todo : null;
+    const roles = room.world?.lounge?.roles || {};
+    const messenger = Number(roles.messenger) || null;
+    const revision = Number(room.world?.lounge?.sharedFieldRevisions?.roles) || 0;
+    const sameRun = previous?.runId === runId;
+    const audible = liveSnapshot && sameRun && gameStarted && activeLobbyId === roomId &&
+        !homeEndingSequenceActive;
+    const next = sameRun ? { ...previous } : { runId, todo: null, messenger: null, revision: 0 };
+    if (!liveSnapshot || !sameRun || validTodo &&
+        (!previous.todo || Number(validTodo.sequence) > Number(previous.todo.sequence))) {
+        if (audible && validTodo) {
+            for (const row of Object.values(validTodo.rows || {})) {
+                const oldRow = previous.todo?.rows?.[row.id];
+                if (!oldRow && !row.initial) playTodoChangeSound(false);
+                // A completion received before activation is silent until its row is visible.
+                if ((oldRow || !row.initial) && validTodo.done?.[row.id] &&
+                    (!oldRow || !previous.todo?.done?.[row.id])) {
+                    playTodoChangeSound(true);
+                }
+            }
+        }
+        next.todo = validTodo ? JSON.parse(JSON.stringify(validTodo)) : null;
+    }
+    if (!liveSnapshot || !sameRun || revision >= previous.revision) {
+        if (audible && Number(room.lobby?.playerLimit) === 4 && messenger && messenger !== previous.messenger) {
+            const name = room.lobby?.players?.[String(messenger)]?.name ||
+                room.players?.[String(messenger)]?.name || `Spelare ${messenger}`;
+            const own = Number(playerState.id) === messenger;
+            showMessage(
+                own ? "Budbäraren" : `${name} har blivit Budbäraren`,
+                own
+                    ? "Du kan nu skicka items till andra spelare, genom att dra dem från ditt inventory till väskan i högra nedre hörnet"
+                    : `Ni kan nu skicka items till ${name}, genom att dra dem från er inventory till väskan i högra nedre hörnet`,
+                undefined, "Ok"
+            );
+        }
+        next.messenger = messenger;
+        next.revision = revision;
+    }
+    sharedNotificationBaselines.set(roomId, next);
+}
+
 function syncFirebaseRoomToLocal(roomId, roomData) {
     const room = roomData && typeof roomData === "object" ? roomData : {};
+    const liveSnapshot = firebaseRoomSnapshots.has(roomId);
     const suffix = `_${roomId}`;
     const synchronizedValues = new Map([
         [`wh_lobbyState${suffix}`, room.lobby ?? null],
@@ -4999,6 +5066,7 @@ function syncFirebaseRoomToLocal(roomId, roomData) {
     });
 
     synchronizedValues.forEach((value, key) => updateLocalSharedValue(key, value));
+    notifySharedRoomChanges(roomId, room, liveSnapshot);
     firebaseRoomErrors.delete(roomId);
     firebaseFailureMessage = null;
     updateFirebaseConnectionOverlay();
@@ -9026,7 +9094,7 @@ function addItem(item) {
             broadcastPickup(item);
             playPickupSound();
         }
-        showToast(`Du är nu ${LOUNGE_ROLE_CONFIG[roleToAssign].title}.`);
+        if (roleToAssign !== "messenger") showToast(`Du är nu ${LOUNGE_ROLE_CONFIG[roleToAssign].title}.`);
         refreshScene();
         return;
     }
@@ -13425,22 +13493,22 @@ function positionGameInfo() {
         hasPanelSpace ? right - left : window.innerWidth - 32);
     gameInfoPanelEl.style.setProperty("--info-width", `${width}px`);
     gameInfoPanelEl.style.setProperty("--info-center", `${hasPanelSpace ? (left + right) / 2 : window.innerWidth / 2}px`);
-    // Use the rendered panels, not scene-relative coordinates; on narrow screens omit overlapping arrows.
+    // Overlay the target edge so the arrow tip reaches its center even when the info panel overlaps.
     const arrow = document.getElementById("gameInfoArrow");
     arrow.hidden = true;
     if (gameInfoPage !== 1 && gameInfoPage !== 2) return;
-    const panel = gameInfoPanelEl.getBoundingClientRect();
     const target = gameInfoPage === 1 ? inventoryRect : todoRect;
     if (!target.width || !target.height) return;
     const toRight = gameInfoPage === 1;
-    const gap = toRight ? target.left - panel.right : panel.left - target.right;
-    if (gap < 28) return;
-    const size = Math.min(64, gap - 12);
-    const leftEdge = toRight ? panel.right + 6 : panel.left - size - 6;
-    const y2 = Math.max(target.top + 12, Math.min(target.bottom - 12, panel.top + panel.height / 2));
+    const size = Math.min(64, target.width * .4, target.height * .25);
+    const centerX = target.left + target.width / 2;
+    const centerY = target.top + target.height / 2;
+    if (size < 16 || centerX < 0 || centerX > window.innerWidth ||
+        centerY < 0 || centerY > window.innerHeight) return;
+    const leftEdge = toRight ? centerX - size : centerX;
     arrow.src = `assets/ui/cursors/WH_UI_${toRight ? "right" : "left"}.webp`;
     arrow.style.left = `${leftEdge}px`;
-    arrow.style.top = `${y2 - size / 2}px`;
+    arrow.style.top = `${centerY - size / 2}px`;
     arrow.style.width = `${size}px`;
     arrow.style.height = `${size}px`;
     arrow.hidden = false;
