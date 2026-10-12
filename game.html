@@ -7781,6 +7781,33 @@ const effectAudioEls = [
     forestWaterAudioEl,
     forestWindAudioEl
 ];
+const startupUiImageUrls = [
+    "assets/ui/WH_UI_Info.webp",
+    "assets/ui/WH_UI_ToDo.webp",
+    "assets/ui/WH_UI_Scroll_Up.webp",
+    "assets/ui/WH_UI_Scroll_Down.webp",
+    "assets/ui/WH_UI_Scroll_Track.webp",
+    "assets/ui/WH_UI_Scroll_Thumb.webp",
+    "assets/ui/cursors/WH_UI_look.webp",
+    "assets/ui/cursors/WH_UI_pick_up.webp",
+    "assets/ui/cursors/WH_UI_door.webp",
+    "assets/ui/cursors/WH_UI_Hold.webp",
+    "assets/ui/cursors/WH_UI_back.webp",
+    "assets/ui/cursors/WH_UI_right.webp",
+    "assets/ui/cursors/WH_UI_left.webp",
+    "assets/ui/WH_UI_Doornote.webp",
+    "assets/ui/WH_UI_BabaNote.webp",
+    "assets/ui/WH_UI_Kirknote.webp",
+    "assets/ui/WH_UI_Recipe_book.webp",
+    "assets/ui/WH_UI_Frame_Large.webp"
+];
+const startupUiAudioEls = [
+    startMenuAudioEl,
+    document.getElementById("unlockAudio"),
+    document.getElementById("paperAudio"),
+    document.getElementById("todoWriteAudio"),
+    document.getElementById("todoUnderlineAudio")
+];
 const kettleTimerDisplayEl = document.getElementById("kettleTimerDisplay");
 const explosionOverlayEl = document.getElementById("explosionOverlay");
 const explosionImageEl = document.getElementById("explosionImage");
@@ -14726,11 +14753,12 @@ function getStartupSceneMedia() {
         RAVEN_FED_IMAGE
     ].forEach(url => backgroundUrls.add(url));
 
+    startupUiImageUrls.forEach(url => interactableUrls.add(url));
     itemIds.forEach(item => {
         if (itemIcons[item]) interactableUrls.add(itemIcons[item]);
     });
     addMediaUrls(KEY_PROGRESSION, interactableUrls);
-    addMediaUrls(tarotFanCards, interactableUrls);
+    interactableUrls.add("assets/interactables/Kitchen/books_occult_with_recipe.webp");
     [
         MORTAR_EMPTY_ICON,
         MORTAR_FILLED_ICON,
@@ -14744,6 +14772,16 @@ function getStartupSceneMedia() {
     ].forEach(url => interactableUrls.add(url));
 
     return { backgrounds: [...backgroundUrls], interactables: [...interactableUrls] };
+}
+
+async function preloadStartupFont(font) {
+    try {
+        await document.fonts.load(font);
+        return true;
+    } catch (error) {
+        console.warn(`Startfonten kunde inte förladdas: ${font}`, error);
+        return false;
+    }
 }
 
 function preloadStartupAudio(audioEl) {
@@ -14771,8 +14809,8 @@ function preloadStartupAudio(audioEl) {
 
 async function preloadStartupMediaGroup(items, loader, label) {
     const failedItems = [];
-    for (let offset = 0; offset < items.length; offset += 2) {
-        const batch = items.slice(offset, offset + 2);
+    for (let offset = 0; offset < items.length; offset += 8) {
+        const batch = items.slice(offset, offset + 8);
         const results = await Promise.all(batch.map(loader));
         results.forEach((loaded, index) => {
             if (!loaded) failedItems.push(batch[index]);
@@ -14789,7 +14827,10 @@ function preloadStartupMedia() {
     const startupLoads = [
         preloadStartupMediaGroup(backgrounds, url => preloadSceneImage(url, "high"), "bakgrunds"),
         preloadStartupMediaGroup(interactables, url => preloadSceneImage(url, "high"), "interaktions"),
-        preloadStartupMediaGroup(effectAudioEls, preloadStartupAudio, "ljud")
+        preloadStartupMediaGroup([...new Set([...effectAudioEls, ...startupUiAudioEls,
+            ambientMusicAudioEl, kitchenMusicAudioEl])], preloadStartupAudio, "ljud"),
+        preloadStartupFont('16px "WH Info Cinzel"'),
+        preloadStartupFont('16px "WH Todo Caveat"')
     ];
     startupMediaPreloadPromise = Promise.all(startupLoads);
     return startupMediaPreloadPromise;
@@ -14899,12 +14940,25 @@ function handleLobbyIntroVideoPlaybackRetry() {
     }
 }
 
+async function enterGameAfterStartupMedia(showInitialInfo) {
+    const mediaPromise = startupMediaPreloadPromise;
+    if (mediaPromise) {
+        try {
+            await mediaPromise;
+        } catch (error) {
+            console.error("Startmedia kunde inte förladdas helt; spelet startar ändå.", error);
+        }
+    }
+    if (gameStarted || homeEndingExitInProgress || !activeLobbyId || !lobbySeatId) return;
+    enterGameFromLobby();
+    if (showInitialInfo && gameStarted) openGameInfo("initial");
+}
+
 function handleLobbyIntroVideoEnded() {
     const showInitialInfo = !gameStarted && !environment && !!activeLobbyId && !!lobbySeatId &&
         lobbyIntroStarted && lobbyIntroFinished && !homeEndingSequenceActive && !homeEndingExitInProgress &&
         !lobbyIntroVideoOverlayEl.hidden && lobbyIntroVideoEl.ended && lobbyIntroVideoEl.played.length > 0;
-    enterGameFromLobby();
-    if (showInitialInfo && gameStarted) openGameInfo("initial");
+    void enterGameAfterStartupMedia(showInitialInfo);
 }
 
 function initializeLobbyIntroVideo() {
