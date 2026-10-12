@@ -1173,16 +1173,17 @@ body:not(.environment-enabled) #lobbyDebugControls {
 }
 
 #todoPanel {
+    --todo-height: min(54vh, calc(100vh - 200px));
     position: fixed;
     top: 190px;
-    left: 10px;
-    height: min(45vh, calc(100vh - 200px));
+    left: calc(10px - var(--todo-height) * 0.1467);
+    height: var(--todo-height);
     aspect-ratio: 1024 / 1536;
     z-index: 8;
     background: url("assets/ui/WH_UI_ToDo.webp") center / 100% 100% no-repeat;
     color: #30261b;
     font-family: "WH Todo Caveat", cursive;
-    font-size: clamp(11px, 1.45vh, 18px);
+    font-size: clamp(13.2px, 1.74vh, 21.6px);
 }
 #todoPanel[hidden],
 body.in-lobby #todoPanel,
@@ -1198,6 +1199,30 @@ body.ending-sequence-active #todoPanel { display: none; }
 }
 #todoRows li { padding: 0.45em 0; }
 #todoRows li.completed { text-decoration: line-through; opacity: 0.65; }
+#todoRows::-webkit-scrollbar {
+    width: 20px;
+    background: transparent;
+}
+#todoRows::-webkit-scrollbar-track {
+    background: url("assets/ui/WH_UI_Scroll_Track.webp") center / 100% 100% no-repeat;
+}
+#todoRows::-webkit-scrollbar-thumb {
+    background: url("assets/ui/WH_UI_Scroll_Thumb.webp") center / contain no-repeat;
+    min-height: 36px;
+}
+#todoRows::-webkit-scrollbar-button:single-button {
+    display: block;
+    height: 20px;
+    background-position: center;
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+#todoRows::-webkit-scrollbar-button:single-button:vertical:decrement {
+    background-image: url("assets/ui/WH_UI_Scroll_Up.webp");
+}
+#todoRows::-webkit-scrollbar-button:single-button:vertical:increment {
+    background-image: url("assets/ui/WH_UI_Scroll_Down.webp");
+}
 
 #messengerRelay {
     display: none;
@@ -3006,6 +3031,7 @@ body.raven-wordle #ravenPuzzleOverlay {
 <audio id="crackAudio" src="assets/audio/crack.mp3" preload="none"></audio>
 <audio id="footstepsAudio" src="assets/audio/footsteps.mp3" preload="none"></audio>
 <audio id="doorAudio" src="assets/audio/door.mp3" preload="none"></audio>
+<audio id="unlockAudio" src="assets/audio/unlock.mp3" preload="none"></audio>
 <audio id="pickupItemAudio" src="assets/audio/pick_up_item.mp3" preload="none"></audio>
 <audio id="keysAudio" src="assets/audio/keys.mp3" preload="none"></audio>
 <audio id="batteryAudio" src="assets/audio/battery.mp3" preload="none"></audio>
@@ -5253,7 +5279,7 @@ function getLoungeChannelImage() {
 
 const LOUNGE_ROLE_CONFIG = {
     listener: { item: "headphones", title: "Tolk", card: "assets/ui/WH_UI_Role_Listener.webp" },
-    watcher: { item: "remote", title: "Tittare", card: "assets/ui/WH_UI_Role_Watcher.webp" },
+    watcher: { item: "remote", title: "Siare", card: "assets/ui/WH_UI_Role_Watcher.webp" },
     builder: { item: "kitchenDoorKey", title: "Byggare", card: "assets/ui/WH_UI_Role_Builder.webp" },
     messenger: { item: "messengerBag", title: "Budbärare", card: "assets/ui/WH_UI_Role_Messenger.webp" }
 };
@@ -7632,6 +7658,14 @@ function playDoorSound() {
     doorAudioEl.volume = fxVolume;
     doorAudioEl.muted = fxMuted;
     doorAudioEl.play().catch(() => {});
+}
+
+function playUnlockSound() {
+    const audio = document.getElementById("unlockAudio");
+    audio.currentTime = 0;
+    audio.volume = fxVolume;
+    audio.muted = fxMuted;
+    audio.play().catch(error => console.warn("Upplåsningsljudet kunde inte spelas:", error));
 }
 
 function playHingeSound() {
@@ -11501,7 +11535,7 @@ function handleSpecialClick(special, spot = {}, spiritVoteApproved = false) {
 
     if (special === "loungeToggleTV") {
         if (!playerHasRole("watcher")) {
-            showToast("Bara Tittaren kan använda fjärrkontrollen.");
+            showToast("Bara Siaren kan använda fjärrkontrollen.");
             return;
         }
         if (!loungeState.remotePowered) {
@@ -12907,7 +12941,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
     }
 
     if (!debugNavigation && id === "loungeSofaSeated" && !playerHasRole("watcher")) {
-        showToast("Bara Tittaren kan se TV:n från soffan.");
+        showToast("Bara Siaren kan se TV:n från soffan.");
         return;
     }
     if (!debugNavigation && id === "loungeListeningChairListening" && !playerHasRole("listener")) {
@@ -13281,6 +13315,7 @@ function goToScene(id, { debugNavigation = false, transition = true, persist = t
 
                 if (spot.doorId && !doorIsUnlocked && inventory.has(spot.requiredItem)) {
                     worldState.unlockedDoors.add(spot.doorId);
+                    playUnlockSound();
                     saveWorldState();
                     showToast("Dörren är nu upplåst för alla spelare.");
                 }
