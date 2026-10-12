@@ -1197,8 +1197,47 @@ body.ending-sequence-active #todoPanel { display: none; }
     overflow-y: auto;
     overflow-wrap: anywhere;
 }
-#todoRows li { padding: 0.45em 0; }
-#todoRows li.completed { text-decoration: line-through; opacity: 0.65; }
+#todoRows {
+    --todo-strike-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'%3E%3Cpath d='M2 8.6C31 6.1 58 9.6 93 6.9S158 4.5 198 5.5' fill='none' stroke='%232c2117' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M9 9.5C52 7.7 103 8.9 149 6.7S185 6 193 6.4' fill='none' stroke='%232c2117' stroke-width='1' stroke-linecap='round' opacity='.55' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+}
+#todoRows li { position: relative; padding: 0.45em 0; transition: opacity 0.6s ease; }
+#todoRows li.completed { opacity: 0.65; }
+#todoRows .todo-label {
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+#todoRows li.completed .todo-label { background: var(--todo-strike-ink) 0 62% / 100% 0.42em no-repeat; }
+#todoRows .todo-char { visibility: hidden; }
+#todoRows .todo-char.written { visibility: visible; animation: todo-ink 260ms ease-out both; }
+#todoRows .todo-strikes {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+#todoRows .todo-strike {
+    position: absolute;
+    left: 0;
+    top: 55%;
+    width: 100%;
+    height: 0.42em;
+    margin-top: -0.21em;
+    background: var(--todo-strike-ink) center / 100% 100% no-repeat;
+    clip-path: inset(0 100% 0 0);
+    transform: rotate(var(--strike-tilt, -0.8deg));
+    transform-origin: left center;
+    animation: todo-strike var(--strike-duration, 1500ms) cubic-bezier(0.35, 0.05, 0.45, 1) var(--strike-delay, 0ms) forwards;
+}
+@keyframes todo-ink {
+    from { opacity: 0; text-shadow: 0 0 3px rgba(48, 38, 27, 0.6); }
+    to { opacity: 1; text-shadow: none; }
+}
+@keyframes todo-strike {
+    to { clip-path: inset(0 0 0 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #todoRows .todo-char.written,
+    #todoRows .todo-strike { animation-duration: 1ms; animation-delay: 0ms; }
+}
 #todoRows::-webkit-scrollbar {
     width: 20px;
     background: transparent;
@@ -6625,6 +6664,14 @@ const TODO_LABELS = {
 let todoResetting = false;
 let renderedTodoRunId = null;
 let renderedTodoSequence = 0;
+const TODO_WRITE_CHARACTER_MS = 58;
+const TODO_WRITE_MAX_MS = 3200;
+const TODO_STRIKE_MS = 1500;
+const TODO_STRIKE_SETTLE_MS = 80;
+// Local presentation state only; keyed rows keep in-progress handwriting across repeated snapshots.
+const todoRowEntries = new Map();
+let renderedTodo = null;
+let todoAnimationGeneration = 0;
 
 function reduceTodo(room, event, detail = {}) {
     const runId = String(room.lobby.startedAt);
@@ -6781,15 +6828,262 @@ function renderTodo(todo) {
     const list = document.getElementById("todoRows");
     panel.hidden = !gameStarted || todoResetting || homeEndingSequenceActive || !todo?.rows ||
         todo.runId !== String(currentLobbyRoom?.startedAt);
-    if (todo?.runId === renderedTodoRunId && Number(todo.sequence) < renderedTodoSequence) return;
+    if (todo?.runId === renderedTodoRunId && Number(todo.sequence) < renderedTodoSequence) {
+        if (panel.hidden) renderStaticTodo(list, renderedTodo);
+        return;
+    }
+    // Only live deltas within an already rendered run are handwritten; first load, reconnect,
+    // hidden panels and new runs show the settled list without replaying effects.
+    const animate = !panel.hidden && Boolean(todo.runId) && todo.runId === renderedTodoRunId &&
+        firebaseRoomSnapshots.has(activeLobbyId) && !todoMotionReduced();
     renderedTodoRunId = todo?.runId ?? null;
     renderedTodoSequence = Number(todo?.sequence) || 0;
+    renderedTodo = todo || null;
+    if (animate) applyTodoDelta(list, todo);
+    else renderStaticTodo(list, todo);
+}
+
+function todoMotionReduced() {
+    return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+}
+
+function todoGraphemes(text) {
+    const value = String(text ?? "");
+    if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+        return Array.from(new Intl.Segmenter("sv", { granularity: "grapheme" }).segment(value), part => part.segment);
+    }
+    return Array.from(value);
+}
+
+function todoWriteStepMs(characterCount) {
+    return Math.min(TODO_WRITE_CHARACTER_MS, TODO_WRITE_MAX_MS / Math.max(1, characterCount));
+}
+
+function scheduleTodoTimer(entry, delay, callback) {
+    const generation = todoAnimationGeneration;
+    const timer = setTimeout(() => {
+        entry.timers.delete(timer);
+        if (generation !== todoAnimationGeneration || todoRowEntries.get(entry.id) !== entry) return;
+        callback();
+    }, delay);
+    entry.timers.add(timer);
+}
+
+function cancelTodoTimers(entry) {
+    entry.timers.forEach(timer => clearTimeout(timer));
+    entry.timers.clear();
+}
+
+function createTodoEntry(row) {
+    const item = document.createElement("li");
+    const label = document.createElement("span");
+    const strikes = document.createElement("span");
+    item.className = "todo-row";
+    item.dataset.todoId = row.id;
+    label.className = "todo-label";
+    strikes.className = "todo-strikes";
+    strikes.setAttribute("aria-hidden", "true");
+    item.append(label, strikes);
+    return { id: row.id, item, label, strikes, text: "", done: false, visualDone: false,
+        writing: false, striking: false, strikePending: false, timers: new Set() };
+}
+
+function setTodoEntryText(entry, text) {
+    entry.text = text;
+    entry.label.textContent = text;
+}
+
+function setStaticTodoEntry(entry, text, done) {
+    cancelTodoTimers(entry);
+    Object.assign(entry, { done, visualDone: done, writing: false, striking: false, strikePending: false });
+    setTodoEntryText(entry, text);
+    entry.strikes.replaceChildren();
+    entry.item.classList.remove("writing", "striking");
+    entry.item.classList.toggle("completed", done);
+    entry.item.removeAttribute("aria-busy");
+}
+
+function renderStaticTodo(list, todo) {
+    todoAnimationGeneration += 1;
+    todoRowEntries.forEach(cancelTodoTimers);
+    todoRowEntries.clear();
     list.replaceChildren();
-    for (const row of orderedTodoRows(todo)) {
-        const item = document.createElement("li");
-        item.textContent = row.label;
-        item.classList.toggle("completed", Boolean(todo.done?.[row.id]));
-        list.appendChild(item);
+    for (const row of Object.values(todo?.rows || {})) {
+        const entry = createTodoEntry(row);
+        setStaticTodoEntry(entry, row.label, Boolean(todo.done?.[row.id]));
+        todoRowEntries.set(row.id, entry);
+    }
+    placeTodoRows(list, todo);
+}
+
+function settleTodoAnimations() {
+    renderStaticTodo(document.getElementById("todoRows"), renderedTodo);
+}
+
+function applyTodoDelta(list, todo) {
+    for (const [id, entry] of todoRowEntries) {
+        if (todo.rows[id]) continue;
+        cancelTodoTimers(entry);
+        entry.item.remove();
+        todoRowEntries.delete(id);
+    }
+    for (const row of Object.values(todo.rows)) {
+        const done = Boolean(todo.done?.[row.id]);
+        let entry = todoRowEntries.get(row.id);
+        if (!entry) {
+            entry = createTodoEntry(row);
+            todoRowEntries.set(row.id, entry);
+            // Initial rows follow the silent audio baseline; later rows are handwritten.
+            if (row.initial) {
+                setStaticTodoEntry(entry, row.label, done);
+            } else {
+                entry.done = done;
+                entry.strikePending = done;
+                startTodoWriting(entry, row.label);
+            }
+            continue;
+        }
+        if (entry.text !== row.label) {
+            if (entry.writing) startTodoWriting(entry, row.label);
+            else setTodoEntryText(entry, row.label);
+        }
+        if (done === entry.done) continue;
+        entry.done = done;
+        if (!done) setStaticTodoEntry(entry, row.label, false);
+        else if (entry.writing) entry.strikePending = true;
+        else startTodoStrike(entry);
+    }
+    placeTodoRows(list, todo);
+}
+
+function startTodoWriting(entry, text) {
+    cancelTodoTimers(entry);
+    entry.text = text;
+    entry.writing = true;
+    entry.item.classList.add("writing");
+    entry.item.setAttribute("aria-busy", "true");
+    // Every grapheme is laid out (hidden) up front so the row's full space is reserved immediately.
+    const characters = todoGraphemes(text).map(grapheme => {
+        const character = document.createElement("span");
+        character.className = "todo-char";
+        character.textContent = grapheme;
+        return character;
+    });
+    entry.label.replaceChildren(...characters);
+    const step = todoWriteStepMs(characters.length);
+    let written = 0;
+    const writeNext = () => {
+        if (written < characters.length) characters[written++].classList.add("written");
+        if (written < characters.length) scheduleTodoTimer(entry, step, writeNext);
+        else finishTodoWriting(entry);
+    };
+    scheduleTodoTimer(entry, step, writeNext);
+}
+
+function finishTodoWriting(entry) {
+    entry.writing = false;
+    entry.item.classList.remove("writing");
+    entry.item.removeAttribute("aria-busy");
+    if (!entry.strikePending) return;
+    entry.strikePending = false;
+    startTodoStrike(entry);
+}
+
+function startTodoStrike(entry) {
+    cancelTodoTimers(entry);
+    entry.striking = true;
+    entry.item.classList.add("striking");
+    const itemRect = entry.item.getBoundingClientRect();
+    const lines = todoVisualLines(entry.label.getClientRects());
+    const totalWidth = lines.reduce((sum, rect) => sum + rect.width, 0);
+    let delay = 0;
+    // One brush stroke per visual line, drawn one after another; unmeasurable rows get one full-width stroke.
+    const strokes = (lines.length ? lines : [null]).map((rect, index) => {
+        const stroke = document.createElement("span");
+        const duration = rect ? TODO_STRIKE_MS * rect.width / totalWidth : TODO_STRIKE_MS;
+        stroke.className = "todo-strike";
+        if (rect) {
+            stroke.style.left = `${rect.left - itemRect.left - 2}px`;
+            stroke.style.top = `${rect.top - itemRect.top + rect.height * 0.56}px`;
+            stroke.style.width = `${rect.width + 4}px`;
+        }
+        stroke.style.setProperty("--strike-delay", `${Math.round(delay)}ms`);
+        stroke.style.setProperty("--strike-duration", `${Math.round(duration)}ms`);
+        stroke.style.setProperty("--strike-tilt", `${index % 2 ? 0.6 : -0.9}deg`);
+        delay += duration;
+        return stroke;
+    });
+    entry.strikes.replaceChildren(...strokes);
+    scheduleTodoTimer(entry, TODO_STRIKE_MS + TODO_STRIKE_SETTLE_MS, () => finishTodoStrike(entry));
+}
+
+// Per-grapheme spans yield one rect per character; merge fragments that share a visual line.
+function todoVisualLines(rects) {
+    const lines = [];
+    for (const rect of Array.from(rects || [])) {
+        if (!(rect.width > 0 && rect.height > 0)) continue;
+        const middle = rect.top + rect.height / 2;
+        const line = lines.find(other => Math.abs(other.top + other.height / 2 - middle) < Math.min(other.height, rect.height) / 2);
+        if (!line) {
+            lines.push({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
+            continue;
+        }
+        const right = Math.max(line.left + line.width, rect.left + rect.width);
+        const bottom = Math.max(line.top + line.height, rect.top + rect.height);
+        line.left = Math.min(line.left, rect.left);
+        line.top = Math.min(line.top, rect.top);
+        line.width = right - line.left;
+        line.height = bottom - line.top;
+    }
+    return lines.sort((a, b) => a.top - b.top || a.left - b.left);
+}
+
+function finishTodoStrike(entry) {
+    entry.striking = false;
+    entry.visualDone = true;
+    entry.strikes.replaceChildren();
+    entry.item.classList.remove("striking");
+    entry.item.classList.add("completed");
+    placeTodoRows(document.getElementById("todoRows"), renderedTodo);
+}
+
+function visualTodoRows(todo) {
+    // A row only sorts as completed after its local strike has finished.
+    const done = {};
+    for (const [id, entry] of todoRowEntries) {
+        if (entry.visualDone && todo?.done?.[id]) done[id] = todo.done[id];
+    }
+    return orderedTodoRows({ ...todo, done });
+}
+
+function placeTodoRows(list, todo) {
+    const desired = visualTodoRows(todo).map(row => todoRowEntries.get(row.id)?.item).filter(Boolean);
+    const current = Array.from(list.children);
+    const positions = desired.map(item => current.indexOf(item));
+    // Keep the longest already-ordered run in place so in-progress ink/strike effects are not restarted.
+    const lengths = [], previous = [];
+    let best = -1;
+    positions.forEach((position, index) => {
+        lengths[index] = position < 0 ? 0 : 1;
+        previous[index] = -1;
+        if (position < 0) return;
+        for (let before = 0; before < index; before += 1) {
+            if (positions[before] >= 0 && positions[before] < position && lengths[before] + 1 > lengths[index]) {
+                lengths[index] = lengths[before] + 1;
+                previous[index] = before;
+            }
+        }
+        if (best < 0 || lengths[index] > lengths[best]) best = index;
+    });
+    const stable = new Set();
+    for (let index = best; index >= 0; index = previous[index]) stable.add(desired[index]);
+    current.forEach(item => {
+        if (!desired.includes(item)) item.remove();
+    });
+    let next = null;
+    for (let index = desired.length - 1; index >= 0; index -= 1) {
+        if (!stable.has(desired[index])) list.insertBefore(desired[index], next);
+        next = desired[index];
     }
 }
 
@@ -8997,6 +9291,7 @@ function startHomeEndingSequence(startAt = hallState.homeEndingStartedAt) {
     if (!homeEndingSequenceActive) {
         homeEndingSequenceActive = true;
         resetGameInfo();
+        settleTodoAnimations();
         document.body.classList.add("ending-sequence-active");
         homeEndingOverlayEl.hidden = environment;
         homeEndingVideoEl.hidden = true;
